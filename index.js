@@ -15,11 +15,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // O Express precisa entender JSON para as requisições do App Mobile
-app.use(express.json());
+// Removido app.use(express.json()) global, pois a Alexa faz seu próprio parser com validação de segurança.
 
 // Injeção das Rotas na aplicação
 app.use('/api/alexa', alexaRoutes);
-app.use('/api/medicamentos', medicamentoRoutes);
+app.use('/api/medicamentos', express.json(), medicamentoRoutes);
 
 // Rota de saúde para testar se o servidor está online
 app.get('/', (req, res) => {

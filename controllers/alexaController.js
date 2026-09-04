@@ -1,88 +1,95 @@
-/**
- * ============================================================================
- * CONTROLLER DA ALEXA (Inteligência de Voz)
- * ============================================================================
- * Recebe a voz, interpreta e decide o que fazer.
- */
-
-const { ExpressAdapter } = require('ask-sdk-express-adapter');
 const Alexa = require('ask-sdk-core');
-const supabase = require('../config/database');
-const { enviarAlertaCuidador } = require('../services/pushNotification');
+const { ExpressAdapter } = require('ask-sdk-express-adapter');
 
-// 1. Handler de Abertura
+// 1. Handler para quando a Alexa inicia a Skill (ex: "Alexa, abrir meu tcc")
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
     },
     handle(handlerInput) {
-        const speakOutput = 'Olá! Bem-vindo ao assistente do cuidador. Qual remédio você quer confirmar que tomou?';
+        console.log("=== NOVA REQUISIÇÃO DA ALEXA: LaunchRequest ===");
+        const speakOutput = 'Olá! O servidor do seu projeto TCC está conectado e funcionando perfeitamente. Como posso ajudar?';
+
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt(speakOutput)
+            .reprompt(speakOutput) // Mantém o microfone aberto
             .getResponse();
     }
 };
 
-// 2. Handler Principal: Confirmar a Dose
-const ConfirmarDoseIntentHandler = {
+// 1.5 Handler para verificar os medicamentos pendentes
+const VerificarMedicamentosIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
-            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'ConfirmarDoseIntent';
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'VerificarMedicamentosIntent';
     },
-    async handle(handlerInput) {
-        // Captura o nome do remédio dito pelo idoso
-        const remedioFalado = handlerInput.requestEnvelope.request.intent.slots.Remedio?.value || "o remédio";
+    handle(handlerInput) {
+        console.log("=== NOVA REQUISIÇÃO DA ALEXA: VerificarMedicamentosIntent ===");
 
-        console.log(`[ALEXA] Comando de voz recebido: Paciente diz ter tomado -> ${remedioFalado}`);
+        // Simulando a busca no banco de dados (os mesmos dados mockados do dashboard)
+        const medicamentos = [
+            { remedio: "Losartana 50 miligramas", horario: "8 da manhã", status: "CONFIRMADA" },
+            { remedio: "Metformina 500 miligramas", horario: "2 da tarde", status: "PENDENTE" },
+            { remedio: "Vitamina D 1000 unidades", horario: "8 da noite", status: "OMITIDA" },
+            { remedio: "AAS 100 miligramas", horario: "10 da noite", status: "PENDENTE" }
+        ];
 
-        try {
-            // Salva a confirmação no banco de dados
-            await supabase.from('Registro_Consumo').insert([
-                { 
-                    nome_farmaco: remedioFalado, 
-                    status_dose: 'CONFIRMADA',
-                    timestamp_confirmacao: new Date().toISOString()
-                }
-            ]);
+        // Filtra apenas os pendentes
+        const pendentes = medicamentos.filter(m => m.status === "PENDENTE");
 
-            // Envia um push notification de "Sucesso" silencioso (opcional, só para manter o dashboard atualizado)
-            // await enviarAlertaCuidador("Dose Confirmada", `O paciente tomou ${remedioFalado}.`);
-
-            const speakOutput = `Registrei que você tomou ${remedioFalado} e avisei o sistema. Tenha um bom dia!`;
-            return handlerInput.responseBuilder.speak(speakOutput).getResponse();
-
-        } catch (error) {
-            console.error("Erro na integração Alexa/Banco:", error);
-            return handlerInput.responseBuilder
-                .speak('Desculpe, não consegui salvar no sistema agora. Tente novamente.')
-                .getResponse();
+        let speakOutput = '';
+        if (pendentes.length > 0) {
+            speakOutput = `Você tem ${pendentes.length} remédios pendentes hoje. `;
+            pendentes.forEach(m => {
+                speakOutput += `O ${m.remedio} às ${m.horario}. `;
+            });
+            speakOutput += 'Gostaria de confirmar que tomou algum deles?';
+        } else {
+            speakOutput = 'Parabéns, você não tem nenhum remédio pendente para hoje! Posso ajudar com algo mais?';
         }
-    }
-};
 
-// Handler de Erro Genérico
-const ErrorHandler = {
-    canHandle() { return true; },
-    handle(handlerInput, error) {
-        console.error(`[ALEXA ERRO]: ${error.message}`);
         return handlerInput.responseBuilder
-            .speak('Desculpe, eu não entendi. Pode repetir?')
-            .reprompt('Desculpe, eu não entendi. Pode repetir?')
+            .speak(speakOutput)
+            .reprompt('Posso ajudar com mais alguma coisa?') // Mantém aberto
             .getResponse();
     }
 };
 
-// Empacota a skill
+// 2. Handler genérico para capturar erros
+const ErrorHandler = {
+    canHandle() {
+        return true;
+    },
+    handle(handlerInput, error) {
+        console.error(`~~~~ Erro capturado pela Alexa: ${error.message}`);
+        const speakOutput = 'Desculpe, ocorreu um erro no servidor ao processar a requisição.';
+
+        return handlerInput.responseBuilder
+            .speak(speakOutput)
+            .reprompt('Por favor, tente novamente.')
+            .getResponse();
+    }
+};
+
+// 3. Constrói a Skill registrando os Handlers
 const skillBuilder = Alexa.SkillBuilders.custom()
+    .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114') // <--- ADICIONAR ISSO AQUI
     .addRequestHandlers(
         LaunchRequestHandler,
-        ConfirmarDoseIntentHandler
+        VerificarMedicamentosIntentHandler
     )
-    .addErrorHandlers(ErrorHandler);
+    .addErrorHandlers(
+        ErrorHandler
+    );
+
 
 const skill = skillBuilder.create();
-const adapter = new ExpressAdapter(skill, true, true);
 
-// Exporta o adaptador (O express precisa dele para criar a rota)
-module.exports = adapter.getRequestHandlers();
+// 4. Cria o adaptador Express
+// Os booleanos (false, false) desativam a verificação rígida de segurança da Amazon 
+// *apenas* para facilitar este primeiro teste via ngrok. 
+// Para mandar para produção, mudaremos para (true, true) e a URL do servidor deve ser HTTPS.
+const adapter = new ExpressAdapter(skill, false, false);
+
+// 5. Exporta o handler para a rota
+exports.receberRequisicao = adapter.getRequestHandlers();
