@@ -11,20 +11,38 @@ const listarStatus = async (req, res) => {
     console.log("[API] App solicitou status dos medicamentos do dia.");
 
     try {
-        // [CÓDIGO REAL DO SUPABASE]
-        // const { data, error } = await supabase.from('Registro_Consumo').select('*');
-        // if(error) throw error;
-        
-        // Retorno mockado baseado no que definimos para o Figma
+        // Busca os registros de consumo junto com os dados do medicamento
+        const { data, error } = await supabase
+            .from('registro_consumo')
+            .select(`
+                id_registro,
+                timestamp_agendado,
+                status_dose,
+                medicamento (
+                    nome_farmaco,
+                    dosagem
+                )
+            `);
+
+        if (error) {
+            console.error("[ERRO SUPABASE]", error);
+            throw error;
+        }
+
+        // Formata os dados para o dashboard
+        const lembretes = data.map(registro => {
+            return {
+                id: registro.id_registro,
+                remedio: `${registro.medicamento.nome_farmaco} ${registro.medicamento.dosagem}`,
+                horario: new Date(registro.timestamp_agendado).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+                status: registro.status_dose
+            };
+        });
+
         return res.status(200).json({
             sucesso: true,
-            paciente: "Sr. João Silva",
-            lembretes_do_dia: [
-                { id: 1, remedio: "Losartana 50mg", horario: "08:00", status: "CONFIRMADA" },
-                { id: 2, remedio: "Metformina 500mg", horario: "14:00", status: "PENDENTE" },
-                { id: 3, remedio: "Vitamina D 1000UI", horario: "20:00", status: "OMITIDA" },
-                { id: 4, remedio: "AAS 100mg", horario: "22:00", status: "PENDENTE" }
-            ]
+            paciente: "Paciente Teste", // Fixo por enquanto
+            lembretes_do_dia: lembretes
         });
 
     } catch (error) {

@@ -8,8 +8,6 @@
 
 require('dotenv').config();
 
-// [EXEMPLO - DESCOMENTAR QUANDO FOR USAR O SUPABASE]
-/*
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -22,23 +20,3 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = supabase;
-*/
-
-// Exportação mock (falsa) para o código não quebrar enquanto não configura o banco
-module.exports = {
-    // Simula a função de insert do Supabase
-    from: (tabela) => ({
-        insert: async (dados) => {
-            console.log(`[BANCO MOCK] Inserindo na tabela ${tabela}:`, dados);
-            return { data: dados, error: null };
-        },
-        select: async (colunas) => {
-            return {
-                data: [
-                    { id: 1, remedio: "Losartana", status: "PENDENTE" }
-                ],
-                error: null
-            };
-        }
-    })
-};
