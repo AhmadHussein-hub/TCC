@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'login_screen.dart'; // Vamos criar este arquivo no próximo passo
+import 'package:firebase_core/firebase_core.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Carrega variáveis do arquivo .env
   await dotenv.load(fileName: ".env");
+
+  // Liga o Firebase
+  await Firebase.initializeApp();
 
   // Inicialização do Supabase
   await Supabase.initialize(

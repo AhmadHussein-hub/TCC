@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'dart:io' show Platform;
+
 import 'login_screen.dart';
 import 'add_medicamento_screen.dart';
 
@@ -13,7 +16,47 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final supabase = Supabase.instance.client;
 
-  // Função atualizada para buscar na tabela "medicamento"
+  @override
+  void initState() {
+    super.initState();
+    // Chama a função assim que a tela abre, em segundo plano
+    registrarTokenNoBanco();
+  }
+
+  Future<void> registrarTokenNoBanco() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+
+    // Mostra o pop-up pedindo permissão de notificação (Android 13+ e iOS)
+    NotificationSettings settings = await messaging.requestPermission();
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      // Pega o código único (Token) deste celular
+      String? fcmToken = await messaging.getToken();
+
+      if (fcmToken != null) {
+        // Verifica qual cuidador está logado no app agora
+        final idCuidador = supabase.auth.currentUser?.id;
+
+        if (idCuidador != null) {
+          try {
+            // Manda para a sua tabela no Supabase
+            await supabase.from('push_token').upsert({
+              'id_cuidador': idCuidador,
+              'token_fcm': fcmToken,
+              'plataforma': Platform.isAndroid ? 'Android' : 'iOS',
+              'ativo': true,
+              'updated_at': DateTime.now().toIso8601String(),
+            });
+            debugPrint("Token salvo no Supabase com sucesso!");
+          } catch (e) {
+            debugPrint("Erro ao salvar token: $e");
+          }
+        }
+      }
+    }
+  }
+
+  // Função para buscar na tabela "medicamento"
   Future<List<dynamic>> _buscarMedicamentos() async {
     final response = await supabase
         .from('medicamento')
@@ -51,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
-          
+
           if (snapshot.hasError) {
             return Center(child: Text('Erro ao carregar: ${snapshot.error}'));
           }
@@ -71,15 +114,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: ListTile(
                   leading: const Icon(Icons.medication, color: Colors.teal, size: 36),
-                  
-                  // Atualizado para "nome_farmaco"
-                  title: Text(med['nome_farmaco'] ?? 'Sem nome', 
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                  
-                  // Atualizado para incluir a dosagem e o limite de atraso
+                  title: Text(
+                    med['nome_farmaco'] ?? 'Sem nome',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
                   subtitle: Text('Dosagem: ${med['dosagem']}\nTolerância: ${med['limite_atraso_minutos']} min'),
-                  
-                  // Atualizado para "frequencia_horas" e botão de excluir
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -104,8 +143,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               title: const Text('Confirmar exclusão'),
                               content: Text('Deseja excluir o medicamento ${med['nome_farmaco']}?'),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-                                TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Excluir', style: TextStyle(color: Colors.red))),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('Cancelar'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('Excluir', style: TextStyle(color: Colors.red)),
+                                ),
                               ],
                             ),
                           );
@@ -114,11 +159,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               await supabase.from('medicamento').delete().eq('id_medicamento', med['id_medicamento']);
                               setState(() {}); // Recarrega a lista
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Medicamento excluído com sucesso.')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Medicamento excluído com sucesso.')),
+                                );
                               }
                             } catch (e) {
                               if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro ao excluir: $e')));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Erro ao excluir: $e')),
+                                );
                               }
                             }
                           }
@@ -139,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
             context,
             MaterialPageRoute(builder: (context) => const AddMedicamentoScreen()),
           );
-          
+
           // Se o cadastro foi feito (retornou true), atualiza a lista
           if (recarregar == true) {
             setState(() {});
