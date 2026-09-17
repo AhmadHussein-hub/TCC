@@ -1,3 +1,4 @@
+const cron = require('node-cron');
 const supabase = require('../config/database');
 // const pushNotification = require('../services/pushNotification'); // Importe quando for habilitar os pushes
 
@@ -79,3 +80,25 @@ const cronController = {
 };
 
 module.exports = cronController;
+
+const iniciarCronJobs = () => {
+    // Exemplo: Executa todos os dias às 08:00 da manhã
+    cron.schedule('0 8 * * *', async () => {
+        console.log('Executando tarefa agendada: Verificando lembretes...');
+        
+        try {
+            // Sua lógica de banco de dados ou integração de APIs vai aqui
+            
+        } catch (error) {
+            // Tratamento de erros é crucial em background jobs para não derrubar a aplicação
+            console.error('Erro na execução do Cron Job:', error);
+        }
+    }, {
+        scheduled: true,
+        timezone: "America/Sao_Paulo" 
+    });
+};
+
+module.exports = {
+    iniciarCronJobs
+};
