@@ -79,8 +79,6 @@ const cronController = {
     }
 };
 
-module.exports = cronController;
-
 const iniciarCronJobs = () => {
     // Exemplo: Executa todos os dias às 08:00 da manhã
     cron.schedule('0 8 * * *', async () => {
@@ -99,6 +97,8 @@ const iniciarCronJobs = () => {
     });
 };
 
+// Única exportação no final do arquivo
 module.exports = {
+    verificarDoses: cronController.verificarDoses,
     iniciarCronJobs
 };
