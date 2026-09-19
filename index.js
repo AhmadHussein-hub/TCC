@@ -9,14 +9,13 @@ const express = require('express');
 
 // Importação dos Controllers
 // ATENÇÃO: Ajuste os caminhos colocando './TCC_Codigo/...' caso essas pastas estejam dentro de TCC_Codigo
-const { cronController, iniciarCronJobs } = require('./controllers/cronController'); 
+const { cronController, iniciarCronJobs } = require('./TCC_Codigo/controllers/cronController'); 
 
-// Importação dos arquivos de rotas
-const alexaRoutes = require('./routes/alexaRoutes');
-const medicamentoRoutes = require('./routes/medicamentoRoutes');
-const lembreteRoutes = require('./routes/lembreteRoutes');
-const authRoutes = require('./routes/authRoutes');
-const cronRoutes = require('./routes/cronRoutes');
+const alexaRoutes = require('./TCC_Codigo/routes/alexaRoutes');
+const medicamentoRoutes = require('./TCC_Codigo/routes/medicamentoRoutes');
+const lembreteRoutes = require('./TCC_Codigo/routes/lembreteRoutes');
+const authRoutes = require('./TCC_Codigo/routes/authRoutes');
+const cronRoutes = require('./TCC_Codigo/routes/cronRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
