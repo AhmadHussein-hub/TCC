@@ -1,5 +1,5 @@
 const admin = require('../config/firebase');
-const supabase = require('../config/supabaseClient');
+const supabase = require('../config/database');
 
 const pushNotificationService = {
 

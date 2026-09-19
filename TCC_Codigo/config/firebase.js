@@ -1,9 +1,10 @@
-const admin = require('firebase-admin');
+const { initializeApp, cert } = require('firebase-admin/app');
+const admin = require('firebase-admin'); // Mantemos para exportar
 
 try {
     let serviceAccount;
 
-    // 1. Tenta carregar pela variável de ambiente (Produção / Servidor)
+    // 1. Tenta carregar pela variável de ambiente (Servidor/Vercel)
     if (process.env.FIREBASE_CREDENTIALS) {
         serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
     } 
@@ -12,8 +13,9 @@ try {
         serviceAccount = require('../firebase-service-account.json');
     }
 
-    admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
+    // Inicializa usando a sintaxe atualizada
+    initializeApp({
+        credential: cert(serviceAccount)
     });
     
     console.log("✅ Firebase inicializado com sucesso!");
@@ -22,4 +24,5 @@ try {
     console.error("❌ ERRO CRÍTICO ao inicializar o Firebase:", error.message);
 }
 
+// Exportamos o admin para o seu pushNotification.js conseguir usar o mensageiro
 module.exports = admin;
