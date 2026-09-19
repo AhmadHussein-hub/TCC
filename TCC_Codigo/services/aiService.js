@@ -15,19 +15,6 @@ const aiService = {
             // 1. Buscar as interações e registros recentes (últimos 7 dias) do paciente
             const seteDiasAtras = new Date();
             seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-
-            const { data: registros, error: errRegistros } = await supabase
-                .from('registro_consumo')
-                .select(`
-                    status_dose,
-                    timestamp_agendado,
-                    medicamento (nome_farmaco)
-                `)
-                // Na versão mais nova do supabase a query é um pouco diferente para joins, 
-                // assumindo que medicamento(id_paciente) não será filtrável aqui, faremos a busca geral
-                // e filtraremos após. Para simplificar, vou buscar os medicamentos do paciente e depois os registros.
-                // Mas, vamos usar a abordagem de duas etapas para garantir:
-                
             const { data: medicamentos, error: errMed } = await supabase
                 .from('medicamento')
                 .select('id_medicamento, nome_farmaco')
