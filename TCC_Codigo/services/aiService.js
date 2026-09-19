@@ -34,9 +34,9 @@ const aiService = {
 
             const { data: interacoes, error: errInteracoes } = await supabase
                 .from('log_interacao')
-                .select('tipo_evento, dados, data_hora')
+                .select('tipo_evento, dados, created_at')
                 .eq('id_paciente', id_paciente)
-                .gte('data_hora', seteDiasAtras.toISOString());
+                .gte('created_at', seteDiasAtras.toISOString());
 
             if (errRegistros2 || errInteracoes) {
                 console.error("Erro ao buscar dados para IA:", errRegistros2, errInteracoes);
@@ -48,7 +48,7 @@ const aiService = {
                 doses_confirmadas: registrosCorretos.filter(r => r.status_dose === 'CONFIRMADA').length,
                 doses_esquecidas: registrosCorretos.filter(r => r.status_dose === 'OMITIDA').length,
                 doses_pendentes: registrosCorretos.filter(r => r.status_dose === 'PENDENTE').length,
-                alertas: interacoes.map(i => `${i.tipo_evento} - ${JSON.stringify(i.dados)} em ${i.data_hora}`)
+                alertas: interacoes.map(i => `${i.tipo_evento} - ${JSON.stringify(i.dados)} em ${i.created_at}`)
             };
 
             const prompt = `
@@ -68,7 +68,7 @@ Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algu
 
             // 3. Chamar a API do Gemini
             const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: prompt,
             });
 
