@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const supabase = require('../config/database');
-// const pushNotification = require('../services/pushNotification'); // Importe quando for habilitar os pushes
+const pushNotification = require('../services/pushNotification');
 
 const cronController = {
     async verificarDoses(req, res) {
@@ -62,11 +62,11 @@ const cronController = {
                     }]);
 
                     // C. Dispara o Push Notification para o celular do Cuidador
-                    /* await pushNotification.alertarCuidadores(
+                    await pushNotification.alertarCuidadores(
                         dose.medicamento.id_paciente, 
                         '⚠️ Remédio Esquecido!', 
                         `O paciente não confirmou o uso do ${dose.medicamento.nome_farmaco} no tempo limite.`
-                    ); */
+                    );
                 }
             }
 

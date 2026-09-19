@@ -11,6 +11,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/genai": "^2.23.0",
     "@supabase/supabase-js": "^2.110.8",
     "ask-sdk-core": "^2.14.0",
     "ask-sdk-express-adapter": "^2.14.0",

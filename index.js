@@ -16,6 +16,7 @@ const medicamentoRoutes = require('./TCC_Codigo/routes/medicamentoRoutes');
 const lembreteRoutes = require('./TCC_Codigo/routes/lembreteRoutes');
 const authRoutes = require('./TCC_Codigo/routes/authRoutes');
 const cronRoutes = require('./TCC_Codigo/routes/cronRoutes');
+const aiRoutes = require('./TCC_Codigo/routes/aiRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,7 @@ app.use('/api/alexa', alexaRoutes);
 app.use('/api/medicamentos', express.json(), medicamentoRoutes);
 app.use('/api/lembrete', express.json(), lembreteRoutes);
 app.use('/api/auth', express.json(), authRoutes);
+app.use('/api/ai', express.json(), aiRoutes);
 
 // A NOSSA ROTA DO CRON PARA A VERCEL CHAMAR
 app.use('/api/cron', express.json(), cronRoutes);

@@ -3,22 +3,86 @@ const { ExpressAdapter } = require('ask-sdk-express-adapter');
 const supabase = require('../config/database');
 const pushNotification = require('../services/pushNotification'); // Importação habilitada
 
-// 1. Handler LaunchRequest (Início)
+// 1. Handler LaunchRequest (Início e Agendamento Automático de Lembretes)
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
     },
-    handle(handlerInput) {
+    async handle(handlerInput) {
         const meuId = handlerInput.requestEnvelope.context.System.user.userId;
         console.log("🎯 MEU ALEXA USER ID É:", meuId);
         
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: LaunchRequest ===");
-        const speakOutput = 'Olá! O servidor do seu projeto TCC está conectado e funcionando perfeitamente. Como posso ajudar?';
+        let speakOutput = 'Olá! O servidor do seu projeto TCC está conectado. ';
+
+        try {
+            // Verifica permissão de Lembretes
+            const permissions = handlerInput.requestEnvelope.context.System.user.permissions;
+            if (!permissions || !permissions.consentToken) {
+                return handlerInput.responseBuilder
+                    .speak('Por favor, habilite a permissão de Lembretes no aplicativo da Alexa para que eu possa te avisar na hora dos remédios.')
+                    .withAskForPermissionsConsentCard(['alexa::alerts:reminders:skill:readwrite'])
+                    .getResponse();
+            }
+
+            // 1. Valida o paciente
+            const { data: paciente } = await supabase.from('paciente').select('id_paciente').eq('alexa_user_id', meuId).single();
+            if (paciente) {
+                // 2. Busca remédios pendentes
+                const agora = new Date();
+                const { data: doses } = await supabase.from('registro_consumo')
+                    .select('id_registro, timestamp_agendado, medicamento!inner(nome_farmaco)')
+                    .eq('medicamento.id_paciente', paciente.id_paciente)
+                    .eq('status_dose', 'PENDENTE')
+                    .gte('timestamp_agendado', agora.toISOString());
+
+                if (doses && doses.length > 0) {
+                    // Prepara cliente da API de Lembretes
+                    const reminderServiceClient = handlerInput.serviceClientFactory.getReminderManagementServiceClient();
+                    
+                    let lembretesCriados = 0;
+                    for (const dose of doses) {
+                        const horarioRemedio = new Date(dose.timestamp_agendado);
+                        // Cria payload do lembrete (lembrete simples para o horário exato)
+                        const reminderRequest = {
+                            requestTime: new Date().toISOString(),
+                            trigger: {
+                                type: 'SCHEDULED_ABSOLUTE',
+                                scheduledTime: horarioRemedio.toISOString().split('.')[0], // Formato ISO sem milissegundos
+                                timeZoneId: 'America/Sao_Paulo'
+                            },
+                            alertInfo: {
+                                spokenInfo: {
+                                    content: [{
+                                        locale: 'pt-BR',
+                                        text: `Hora de tomar o seu medicamento: ${dose.medicamento.nome_farmaco}`
+                                    }]
+                                }
+                            },
+                            pushNotification: { status: 'ENABLED' }
+                        };
+
+                        try {
+                            await reminderServiceClient.createReminder(reminderRequest);
+                            lembretesCriados++;
+                        } catch (e) {
+                            console.error("Erro ao criar lembrete específico:", e);
+                        }
+                    }
+                    speakOutput += `Já agendei ${lembretesCriados} lembretes automáticos para hoje. `;
+                }
+            }
+        } catch (error) {
+            console.error("Erro ao agendar lembretes no Launch:", error);
+            // Ignora o erro e continua a saudação
+        }
+
+        speakOutput += 'Como posso ajudar agora?';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .withSimpleCard('Seu ID da Alexa (Copie abaixo)', meuId)
-            .reprompt(speakOutput)
+            .reprompt('Você pode me perguntar se tem remédios para hoje.')
             .getResponse();
     }
 };
@@ -292,6 +356,7 @@ const ErrorHandler = {
 // 9. CONSTRUÇÃO DA SKILL (Adicionado o SimIntentHandler na lista)
 const skillBuilder = Alexa.SkillBuilders.custom()
     .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114')
+    .withApiClient(new Alexa.DefaultApiClient())
     .addRequestHandlers(
         LaunchRequestHandler,
         VerificarMedicamentosIntentHandler,

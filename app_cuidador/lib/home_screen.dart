@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 
 import 'login_screen.dart';
 import 'add_medicamento_screen.dart';
+import 'ai_summary_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -73,6 +74,17 @@ class _HomeScreenState extends State<HomeScreen> {
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.auto_awesome),
+            tooltip: 'Resumo da IA',
+            onPressed: () {
+              // TODO: Substituir o 1 pelo ID real do paciente se houver múltiplos pacientes
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AiSummaryScreen(pacienteId: 1)),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair',
