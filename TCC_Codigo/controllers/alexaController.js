@@ -4,11 +4,16 @@
     const pushNotification = require('../services/pushNotification'); // Importação habilitada
 
     // 1. Handler LaunchRequest (Início)
-    const LaunchRequestHandler = {
+        const LaunchRequestHandler = {
         canHandle(handlerInput) {
             return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
         },
         handle(handlerInput) {
+            // --- ADICIONE ESTAS DUAS LINHAS ---
+            const meuId = handlerInput.requestEnvelope.context.System.user.userId;
+            console.log("🎯 MEU ALEXA USER ID É:", meuId);
+            // ----------------------------------
+
             console.log("=== NOVA REQUISIÇÃO DA ALEXA: LaunchRequest ===");
             const speakOutput = 'Olá! O servidor do seu projeto TCC está conectado e funcionando perfeitamente. Como posso ajudar?';
 
