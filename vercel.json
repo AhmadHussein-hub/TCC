@@ -5,5 +5,15 @@
       "src": "/(.*)",
       "dest": "index.js"
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/gerar-registros-diarios",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/verificar-doses",
+      "schedule": "0 * * * *"
+    }
   ]
 }
