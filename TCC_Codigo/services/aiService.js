@@ -68,7 +68,7 @@ Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algu
 
             // 3. Chamar a API do Gemini
             const response = await ai.models.generateContent({
-                model: 'gemini-3.6-flash',
+                model: 'gemini-2.5-flash',
                 contents: prompt,
             });
 
