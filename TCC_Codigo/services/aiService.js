@@ -15,15 +15,16 @@ const aiService = {
             // 1. Buscar as interações e registros recentes (últimos 7 dias) do paciente
             const seteDiasAtras = new Date();
             seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+            
             const { data: medicamentos, error: errMed } = await supabase
                 .from('medicamento')
                 .select('id_medicamento, nome_farmaco')
                 .eq('id_paciente', id_paciente);
-                
+
             if (errMed || !medicamentos || medicamentos.length === 0) {
                 return "Nenhum medicamento encontrado para este paciente.";
             }
-            
+
             const idsMedicamentos = medicamentos.map(m => m.id_medicamento);
 
             const { data: registrosCorretos, error: errRegistros2 } = await supabase
@@ -66,16 +67,36 @@ Faça um breve resumo (no máximo 3 parágrafos curtos) em linguagem simples, re
 Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algum alerta. Se houve emergência, sugira ter atenção redobrada.
             `;
 
-            // 3. Chamar a API do Gemini
-            const response = await ai.models.generateContent({
-                model: 'gemini-1.5-flash',
-                contents: prompt,
-            });
+            // 3. Chamar a API do Gemini com sistema de Retry (Máximo de 3 tentativas)
+            let tentativas = 3;
 
-            return response.text;
-        } catch (error) {
-            console.error("Erro no serviço de IA:", error);
-            throw error;
+            while (tentativas > 0) {
+                try {
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-3.6-flash', 
+                        contents: prompt,
+                    });
+
+                    return response.text; // Se der certo, retorna e sai do loop
+
+                } catch (error) {
+                    if (error.status === 503 && tentativas > 1) {
+                        console.warn(`⏳ Servidor da IA ocupado. Tentando novamente... (Restam ${tentativas - 1} tentativas)`);
+                        // Espera 2 segundos antes de tentar de novo
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        tentativas--;
+                    } else {
+                        // Se não for erro 503 ou acabarem as tentativas, lança o erro final
+                        console.error("Erro no serviço de IA:", error);
+                        throw error;
+                    }
+                }
+            }
+            
+        } catch (errorGeral) {
+            // Este catch captura qualquer erro fora do while (ex: falha no Supabase)
+            console.error("Erro geral ao processar o resumo:", errorGeral);
+            throw errorGeral;
         }
     }
 };
