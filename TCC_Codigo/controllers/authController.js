@@ -3,12 +3,15 @@ const supabase = require('../config/database');
 exports.amazonCallback = async (req, res) => {
     // A Amazon envia 'code' e 'state' (onde passaremos o id_paciente para saber quem logou)
     const { code, state } = req.query;
-    
+
     if (!code) {
         return res.status(400).send('Faltando código de autorização da Amazon.');
     }
 
+
     try {
+
+        
         // Trocar o 'code' temporário por um 'refresh_token' permanente
         const response = await fetch('https://api.amazon.com/auth/o2/token', {
             method: 'POST',
@@ -18,7 +21,7 @@ exports.amazonCallback = async (req, res) => {
                 code: code,
                 client_id: process.env.AMAZON_CLIENT_ID,
                 client_secret: process.env.AMAZON_CLIENT_SECRET,
-                redirect_uri: process.env.AMAZON_REDIRECT_URI // ex: https://seu-app.vercel.app/api/auth/amazon/callback
+                redirect_uri: process.env.AMAZON_REDIRECT_URI
             })
         });
 
