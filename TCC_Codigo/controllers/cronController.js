@@ -10,7 +10,6 @@ const pushNotification = require('../services/pushNotification');
 //   2. Calcula todos os horários de dose para o dia de hoje
 //   3. Insere um registro PENDENTE em `registro_consumo` para cada horário
 //   4. Ignora se o registro já existir (segurança contra duplicatas)
-//   5. Após criar os registros, agenda lembretes na Alexa usando o refresh_token
 // ============================================================================
 async function gerarRegistrosDiariosLogica() {
     console.log("=== INICIANDO GERAÇÃO DE REGISTROS DIÁRIOS ===");
@@ -41,9 +40,6 @@ async function gerarRegistrosDiariosLogica() {
 
     let criados = 0;
     let ignorados = 0;
-
-    // Agrupa registros criados por paciente para agendar lembretes em lote
-    const registrosPorPaciente = {};
 
     for (const med of medicamentos) {
         // Calcula todos os horários de dose do dia
@@ -85,124 +81,13 @@ async function gerarRegistrosDiariosLogica() {
             } else {
                 criados++;
                 console.log(`✅ Registro criado: ${med.nome_farmaco} às ${horario.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
-
-                // Acumula para agendar lembrete na Alexa depois
-                if (!registrosPorPaciente[med.id_paciente]) {
-                    registrosPorPaciente[med.id_paciente] = [];
-                }
-                registrosPorPaciente[med.id_paciente].push({
-                    nomeFarmaco: med.nome_farmaco,
-                    horario: horario
-                });
             }
         }
     }
 
     console.log(`=== GERAÇÃO CONCLUÍDA: ${criados} criados, ${ignorados} já existiam ===`);
 
-    // 2. Para cada paciente que teve registros criados, agenda os lembretes na Alexa
-    for (const idPaciente of Object.keys(registrosPorPaciente)) {
-        await agendarLembretesNaAlexa(Number(idPaciente), registrosPorPaciente[idPaciente]);
-    }
-
     return { criados, ignorados };
-}
-
-// ============================================================================
-// Agenda lembretes diretamente na API da Alexa usando o refresh_token do paciente.
-// Isso permite que a Alexa fale sozinha no horário certo, sem o usuário abrir a skill.
-// ============================================================================
-async function agendarLembretesNaAlexa(idPaciente, doses) {
-    console.log(`🔔 Agendando ${doses.length} lembretes na Alexa para o paciente ${idPaciente}...`);
-
-    // 1. Busca o refresh_token salvo para este paciente
-    const { data: paciente, error } = await supabase
-        .from('paciente')
-        .select('amazon_refresh_token')
-        .eq('id_paciente', idPaciente)
-        .single();
-
-    if (error || !paciente || !paciente.amazon_refresh_token) {
-        console.warn(`⚠️  Paciente ${idPaciente} sem amazon_refresh_token. Lembretes da Alexa não serão criados.`);
-        console.warn(`   → Para corrigir: o paciente precisa acessar o link de vinculação de conta Amazon uma vez.`);
-        return;
-    }
-
-    // 2. Troca o refresh_token por um access_token fresco
-    let accessToken;
-    try {
-        const tokenResponse = await fetch('https://api.amazon.com/auth/o2/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                grant_type: 'refresh_token',
-                refresh_token: paciente.amazon_refresh_token,
-                client_id: process.env.AMAZON_CLIENT_ID,
-                client_secret: process.env.AMAZON_CLIENT_SECRET
-            })
-        });
-
-        const tokenData = await tokenResponse.json();
-
-        if (tokenData.error) {
-            console.error(`❌ Erro ao renovar token da Amazon para paciente ${idPaciente}:`, tokenData.error);
-            return;
-        }
-
-        accessToken = tokenData.access_token;
-    } catch (err) {
-        console.error(`❌ Falha na requisição de token para paciente ${idPaciente}:`, err.message);
-        return;
-    }
-
-    // 3. Para cada dose, cria um lembrete na API da Alexa
-    let lembretesCriados = 0;
-    for (const dose of doses) {
-        // O timestamp está em UTC — informamos timeZoneId: 'UTC' para a Alexa
-        // interpretar corretamente sem conversão dupla
-        const horarioUTC = dose.horario.toISOString().split('.')[0]; // ex: "2026-09-21T12:00:00"
-
-        const reminderPayload = {
-            requestTime: new Date().toISOString(),
-            trigger: {
-                type: 'SCHEDULED_ABSOLUTE',
-                scheduledTime: horarioUTC,
-                timeZoneId: 'UTC'
-            },
-            alertInfo: {
-                spokenInfo: {
-                    content: [{
-                        locale: 'pt-BR',
-                        text: `Atenção! Hora de tomar o medicamento ${dose.nomeFarmaco}.`
-                    }]
-                }
-            },
-            pushNotification: { status: 'ENABLED' }
-        };
-
-        try {
-            const response = await fetch('https://api.amazonalexa.com/v1/alerts/reminders', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(reminderPayload)
-            });
-
-            if (response.ok) {
-                lembretesCriados++;
-                console.log(`🔔 Lembrete Alexa criado: ${dose.nomeFarmaco} às ${dose.horario.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' })}`);
-            } else {
-                const errBody = await response.json();
-                console.error(`❌ Falha ao criar lembrete para ${dose.nomeFarmaco}:`, errBody);
-            }
-        } catch (err) {
-            console.error(`❌ Erro na requisição de lembrete para ${dose.nomeFarmaco}:`, err.message);
-        }
-    }
-
-    console.log(`🔔 ${lembretesCriados}/${doses.length} lembretes criados na Alexa para o paciente ${idPaciente}.`);
 }
 
 // ============================================================================
@@ -343,7 +228,7 @@ const cronController = {
 // ============================================================================
 const iniciarCronJobs = () => {
 
-    // JOB 1: Todo dia às 06:00 BRT — Gera os registros PENDENTE do dia e agenda lembretes na Alexa
+    // JOB 1: Todo dia às 06:00 BRT — Gera os registros PENDENTE do dia
     cron.schedule('0 6 * * *', async () => {
         console.log('⏰ [CRON] Gerando registros diários de medicamentos...');
         try {

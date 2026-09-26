@@ -1,9 +1,9 @@
 const Alexa = require('ask-sdk-core');
 const { ExpressAdapter } = require('ask-sdk-express-adapter');
 const supabase = require('../config/database');
-const pushNotification = require('../services/pushNotification'); // Importação habilitada
+const pushNotification = require('../services/pushNotification');
 
-// 1. Handler LaunchRequest (Início e Agendamento Automático de Lembretes)
+// 1. Handler LaunchRequest (Apenas Saudações e Verificação de Permissão)
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -15,79 +15,131 @@ const LaunchRequestHandler = {
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: LaunchRequest ===");
         let speakOutput = 'Olá! O servidor do seu projeto TCC está conectado. ';
 
-        try {
-            // Verifica permissão de Lembretes
-            const permissions = handlerInput.requestEnvelope.context.System.user.permissions;
-            if (!permissions || !permissions.consentToken) {
-                return handlerInput.responseBuilder
-                    .speak('Por favor, habilite a permissão de Lembretes no aplicativo da Alexa para que eu possa te avisar na hora dos remédios.')
-                    .withAskForPermissionsConsentCard(['alexa::alerts:reminders:skill:readwrite'])
-                    .getResponse();
-            }
-
-            // 1. Valida o paciente
-            const { data: paciente } = await supabase.from('paciente').select('id_paciente').eq('alexa_user_id', meuId).single();
-            if (paciente) {
-                // 2. Busca remédios pendentes
-                const agora = new Date();
-                const { data: doses } = await supabase.from('registro_consumo')
-                    .select('id_registro, timestamp_agendado, medicamento!inner(nome_farmaco)')
-                    .eq('medicamento.id_paciente', paciente.id_paciente)
-                    .eq('status_dose', 'PENDENTE')
-                    .gte('timestamp_agendado', agora.toISOString());
-
-                if (doses && doses.length > 0) {
-                    // Prepara cliente da API de Lembretes
-                    const reminderServiceClient = handlerInput.serviceClientFactory.getReminderManagementServiceClient();
-                    
-                    let lembretesCriados = 0;
-                    for (const dose of doses) {
-                        const horarioRemedio = new Date(dose.timestamp_agendado);
-                        // Cria payload do lembrete (lembrete simples para o horário exato)
-                        const reminderRequest = {
-                            requestTime: new Date().toISOString(),
-                            trigger: {
-                                type: 'SCHEDULED_ABSOLUTE',
-                                scheduledTime: horarioRemedio.toISOString().split('.')[0], // Formato ISO sem milissegundos
-                                timeZoneId: 'America/Sao_Paulo'
-                            },
-                            alertInfo: {
-                                spokenInfo: {
-                                    content: [{
-                                        locale: 'pt-BR',
-                                        text: `Hora de tomar o seu medicamento: ${dose.medicamento.nome_farmaco}`
-                                    }]
-                                }
-                            },
-                            pushNotification: { status: 'ENABLED' }
-                        };
-
-                        try {
-                            await reminderServiceClient.createReminder(reminderRequest);
-                            lembretesCriados++;
-                        } catch (e) {
-                            console.error("Erro ao criar lembrete específico:", e);
-                        }
-                    }
-                    speakOutput += `Já agendei ${lembretesCriados} lembretes automáticos para hoje. `;
-                }
-            }
-        } catch (error) {
-            console.error("Erro ao agendar lembretes no Launch:", error);
-            // Ignora o erro e continua a saudação
+        // Verifica permissão de Lembretes
+        const permissions = handlerInput.requestEnvelope.context.System.user.permissions;
+        if (!permissions || !permissions.consentToken) {
+            return handlerInput.responseBuilder
+                .speak('Por favor, habilite a permissão de Lembretes no aplicativo da Alexa para que eu possa te avisar na hora dos remédios.')
+                .withAskForPermissionsConsentCard(['alexa::alerts:reminders:skill:readwrite'])
+                .getResponse();
         }
 
-        speakOutput += 'Como posso ajudar agora?';
+        speakOutput += 'Para programar seus avisos diários, diga: configurar meus alarmes. Ou pergunte quais são os remédios de hoje.';
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
             .withSimpleCard('Seu ID da Alexa (Copie abaixo)', meuId)
-            .reprompt('Você pode me perguntar se tem remédios para hoje.')
+            .reprompt('Diga: configurar meus alarmes.')
             .getResponse();
     }
 };
 
-// 2. Handler Verificar Medicamentos
+// 2. NOVO: Handler Configurar Lembretes (Cria as regras de recorrência RRULE)
+const ConfigurarLembretesIntentHandler = {
+    canHandle(handlerInput) {
+        return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
+            && Alexa.getIntentName(handlerInput.requestEnvelope) === 'ConfigurarLembretesIntent';
+    },
+    async handle(handlerInput) {
+        console.log("=== NOVA REQUISIÇÃO DA ALEXA: ConfigurarLembretesIntent ===");
+        const alexaUserId = handlerInput.requestEnvelope.context.System.user.userId;
+
+        try {
+            const permissions = handlerInput.requestEnvelope.context.System.user.permissions;
+            if (!permissions || !permissions.consentToken) {
+                return handlerInput.responseBuilder
+                    .speak('Por favor, habilite a permissão de Lembretes no aplicativo e tente novamente.')
+                    .withAskForPermissionsConsentCard(['alexa::alerts:reminders:skill:readwrite'])
+                    .getResponse();
+            }
+
+            // 1. Busca o paciente
+            const { data: paciente } = await supabase
+                .from('paciente')
+                .select('id_paciente')
+                .eq('alexa_user_id', alexaUserId)
+                .single();
+
+            if (!paciente) {
+                return handlerInput.responseBuilder.speak('Não encontrei seu cadastro no sistema.').getResponse();
+            }
+
+            // 2. Busca medicamentos ativos
+            const { data: medicamentos, error } = await supabase
+                .from('medicamento')
+                .select('nome_farmaco, hora_inicio, frequencia_horas')
+                .eq('id_paciente', paciente.id_paciente)
+                .not('hora_inicio', 'is', null)
+                .not('frequencia_horas', 'is', null)
+                .gt('frequencia_horas', 0);
+
+            if (error || !medicamentos || medicamentos.length === 0) {
+                return handlerInput.responseBuilder.speak('Você não tem medicamentos configurados com horário e frequência.').getResponse();
+            }
+
+            const reminderServiceClient = handlerInput.serviceClientFactory.getReminderManagementServiceClient();
+            let lembretesCriados = 0;
+
+            // 3. Cria um lembrete recorrente para cada medicamento
+            for (const med of medicamentos) {
+                const [horaStr, minutoStr] = med.hora_inicio.split(':');
+                const horaInicial = parseInt(horaStr);
+                const minuto = parseInt(minutoStr);
+                
+                const horasRecorrencia = [];
+                let horaAtual = horaInicial;
+                
+                // Calcula as repetições limitadas a um ciclo de 24h
+                while (horaAtual < 24 + horaInicial) {
+                    horasRecorrencia.push(horaAtual % 24);
+                    horaAtual += med.frequencia_horas;
+                }
+
+                const rrule = `FREQ=DAILY;BYHOUR=${horasRecorrencia.join(',')};BYMINUTE=${minuto}`;
+
+                const reminderRequest = {
+                    requestTime: new Date().toISOString(),
+                    trigger: {
+                        type: 'SCHEDULED_ABSOLUTE',
+                        // A data base pode ser "hoje" porque a RRULE assume os horários
+                        scheduledTime: new Date().toISOString().split('T')[0] + `T${horaStr.padStart(2, '0')}:${minutoStr.padStart(2, '0')}:00`,
+                        timeZoneId: 'America/Sao_Paulo',
+                        recurrence: {
+                            recurrenceRules: [rrule]
+                        }
+                    },
+                    alertInfo: {
+                        spokenInfo: {
+                            content: [{
+                                locale: 'pt-BR',
+                                text: `Atenção! Hora de tomar o seu medicamento: ${med.nome_farmaco}.`
+                            }]
+                        }
+                    },
+                    pushNotification: { status: 'ENABLED' }
+                };
+
+                try {
+                    await reminderServiceClient.createReminder(reminderRequest);
+                    lembretesCriados++;
+                    console.log(`✅ Lembrete recorrente criado para ${med.nome_farmaco}: ${rrule}`);
+                } catch (e) {
+                    console.error(`❌ Erro ao criar lembrete para ${med.nome_farmaco}:`, e);
+                }
+            }
+
+            return handlerInput.responseBuilder
+                .speak(`Pronto! Configurei ${lembretesCriados} alarmes recorrentes. Eu vou te avisar todos os dias nos horários corretos.`)
+                .getResponse();
+
+        } catch (error) {
+            console.error("Erro no ConfigurarLembretesIntent:", error);
+            return handlerInput.responseBuilder.speak('Desculpe, tive um problema ao configurar seus lembretes.').getResponse();
+        }
+    }
+};
+
+// 3. Handler Verificar Medicamentos
 const VerificarMedicamentosIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -98,7 +150,6 @@ const VerificarMedicamentosIntentHandler = {
         const alexaUserId = handlerInput.requestEnvelope.context.System.user.userId;
 
         try {
-            // 1. Valida de qual paciente é essa Alexa
             const { data: paciente, error: errorPaciente } = await supabase
                 .from('paciente')
                 .select('id_paciente')
@@ -109,7 +160,6 @@ const VerificarMedicamentosIntentHandler = {
                 return handlerInput.responseBuilder.speak('Não encontrei seu cadastro no sistema.').getResponse();
             }
 
-            // 2. Busca usando inner join para filtrar pelo paciente logado
             const { data, error } = await supabase
                 .from('registro_consumo')
                 .select(`
@@ -125,21 +175,19 @@ const VerificarMedicamentosIntentHandler = {
             let speakOutput = '';
             if (data && data.length > 0) {
                 speakOutput = `Você tem ${data.length} remédios pendentes hoje. `;
-                const registrosIds = []; // Array para guardar os IDs
+                const registrosIds = [];
 
                 data.forEach(registro => {
                     const dataHora = new Date(registro.timestamp_agendado);
-                    // Ajuste de Fuso Horário (-3 horas para Brasília)
                     dataHora.setHours(dataHora.getHours() - 3);
                     const horaFormatada = dataHora.getHours() + " e " + dataHora.getMinutes();
 
                     speakOutput += `O ${registro.medicamento.nome_farmaco} às ${horaFormatada}. `;
-                    registrosIds.push(registro.id_registro); // Salva o ID do registro
+                    registrosIds.push(registro.id_registro);
                 });
 
                 speakOutput += 'Você gostaria de confirmar que tomou eles?';
 
-                // Salva os IDs na memória de sessão da Alexa
                 const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
                 sessionAttributes.registrosParaConfirmar = registrosIds;
                 handlerInput.attributesManager.setSessionAttributes(sessionAttributes);
@@ -156,7 +204,7 @@ const VerificarMedicamentosIntentHandler = {
     }
 };
 
-// 3. NOVO: Handler para quando o usuário disser "Sim"
+// 4. Handler para quando o usuário disser "Sim"
 const SimIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -165,7 +213,6 @@ const SimIntentHandler = {
     async handle(handlerInput) {
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: AMAZON.YesIntent (Confirmação) ===");
         
-        // Puxa a memória temporária da sessão
         const sessionAttributes = handlerInput.attributesManager.getSessionAttributes();
         const registros = sessionAttributes.registrosParaConfirmar;
 
@@ -176,13 +223,11 @@ const SimIntentHandler = {
         }
 
         try {
-            // Atualiza todos os registros salvos na memória no Supabase
             await supabase
                 .from('registro_consumo')
                 .update({ status_dose: 'CONFIRMADA', timestamp_confirmacao: new Date().toISOString() })
                 .in('id_registro', registros);
 
-            // Limpa a memória após confirmar
             handlerInput.attributesManager.setSessionAttributes({});
 
             return handlerInput.responseBuilder
@@ -196,7 +241,7 @@ const SimIntentHandler = {
     }
 };
 
-// 4. Handler Confirmar Medicamento (Com nome específico)
+// 5. Handler Confirmar Medicamento (Com nome específico)
 const ConfirmarMedicamentoIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -246,7 +291,7 @@ const ConfirmarMedicamentoIntentHandler = {
     }
 };
 
-// 5. Handler Recusar Medicamento
+// 6. Handler Recusar Medicamento
 const RecusarMedicamentoIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -284,7 +329,7 @@ const RecusarMedicamentoIntentHandler = {
     }
 };
 
-// 6. Handler Relatar Bem Estar
+// 7. Handler Relatar Bem Estar
 const RelatarBemEstarIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -314,7 +359,7 @@ const RelatarBemEstarIntentHandler = {
     }
 };
 
-// 7. Handler Emergência
+// 8. Handler Emergência
 const EmergenciaIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -344,7 +389,7 @@ const EmergenciaIntentHandler = {
     }
 };
 
-// 8. Error Handler
+// 9. Error Handler
 const ErrorHandler = {
     canHandle() { return true; },
     handle(handlerInput, error) {
@@ -353,12 +398,13 @@ const ErrorHandler = {
     }
 };
 
-// 9. CONSTRUÇÃO DA SKILL (Adicionado o SimIntentHandler na lista)
+// 10. CONSTRUÇÃO DA SKILL
 const skillBuilder = Alexa.SkillBuilders.custom()
     .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114')
     .withApiClient(new Alexa.DefaultApiClient())
     .addRequestHandlers(
         LaunchRequestHandler,
+        ConfigurarLembretesIntentHandler, // <-- Adicionado aqui para processar o novo comando de voz
         VerificarMedicamentosIntentHandler,
         SimIntentHandler,
         ConfirmarMedicamentoIntentHandler,
