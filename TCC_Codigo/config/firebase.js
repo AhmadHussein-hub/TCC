@@ -1,6 +1,8 @@
 const path = require('path');
-const { initializeApp, cert } = require('firebase-admin/app');
-const admin = require('firebase-admin');
+const { initializeApp, cert, getApps } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
+
+let firebaseApp;
 
 try {
     let serviceAccount;
@@ -12,9 +14,15 @@ try {
         serviceAccount = require(path.join(__dirname, '../../firebase-service-account.json'));
     }
 
-    initializeApp({
-        credential: cert(serviceAccount)
-    });
+    // Evita reinicializar se já existe uma instância (comum em ambiente serverless/Vercel,
+    // onde o módulo pode ser reutilizado entre invocações)
+    if (!getApps().length) {
+        firebaseApp = initializeApp({
+            credential: cert(serviceAccount)
+        });
+    } else {
+        firebaseApp = getApps()[0];
+    }
 
     console.log("✅ Firebase inicializado com sucesso!");
 
@@ -22,4 +30,8 @@ try {
     console.error("❌ ERRO CRÍTICO ao inicializar o Firebase:", error.message);
 }
 
-module.exports = admin;
+// Exporta uma função que sempre retorna a instância de messaging pronta pra uso,
+// em vez de exportar o namespace 'admin' clássico (que não bate com initializeApp modular)
+module.exports = {
+    getMessagingInstance: () => getMessaging(firebaseApp)
+};

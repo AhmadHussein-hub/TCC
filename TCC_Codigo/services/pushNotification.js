@@ -1,4 +1,4 @@
-const admin = require('../config/firebase');
+const { getMessagingInstance } = require('../config/firebase');
 const supabase = require('../config/database');
 
 const pushNotificationService = {
@@ -47,8 +47,8 @@ const pushNotificationService = {
                 tokens: tokensList // Envia em lote para todos os cuidadores de uma vez
             };
 
-            // 5. Dispara a notificação via Firebase Admin
-            const response = await admin.messaging().sendEachForMulticast(message);
+            // 5. Dispara a notificação via Firebase Admin (API modular)
+            const response = await getMessagingInstance().sendEachForMulticast(message);
 
             console.log(`${response.successCount} mensagens enviadas com sucesso, ${response.failureCount} falhas.`);
 

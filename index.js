@@ -6,7 +6,7 @@
 
 require('dotenv').config();
 const express = require('express');
-require('./TCC_Codigo/config/firebase'); // Ajuste o caminho se necessário para carregar o firebase.js
+const { getMessagingInstance } = require('./TCC_Codigo/config/firebase'); // já inicializa o Firebase ao ser importado
 
 const supabase = require('./TCC_Codigo/config/database');
 
@@ -91,26 +91,9 @@ app.get('/api/testar-omissao', async (req, res) => {
                         const tokenFCM = tokenData[0].token_fcm;
                         console.log(`>>> Enviando push para o token: ${tokenFCM}`);
 
-                        // Importa e inicializa o Firebase diretamente na rota para evitar falha de escopo
-                        const { initializeApp, cert, getApps } = require('firebase-admin/app');
-                        const { getMessaging } = require('firebase-admin/messaging');
-
-                        let firebaseApp;
-                        if (!getApps().length) {
-                            let serviceAccount;
-                            if (process.env.FIREBASE_CREDENTIALS) {
-                                serviceAccount = JSON.parse(process.env.FIREBASE_CREDENTIALS);
-                            } else {
-                                serviceAccount = require('./firebase-service-account.json'); // Ajuste o caminho se necessário (ex: '../firebase-service-account.json')
-                            }
-                            firebaseApp = initializeApp({
-                                credential: cert(serviceAccount)
-                            });
-                        } else {
-                            firebaseApp = getApps()[0];
-                        }
-
-                        await getMessaging(firebaseApp).send({
+                        // Reaproveita a mesma instância de messaging já inicializada
+                        // em TCC_Codigo/config/firebase.js (sem duplicar initializeApp aqui)
+                        await getMessagingInstance().send({
                             token: tokenFCM,
                             notification: {
                                 title: 'URGENTE: ALERTA DE OMISSÃO',
