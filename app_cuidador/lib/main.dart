@@ -11,16 +11,16 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Carrega variáveis do arquivo .env
+  
   await dotenv.load(fileName: ".env");
 
-  // Liga o Firebase
+  
   await Firebase.initializeApp();
 
-  // Inicializa o serviço de notificações do Firebase
+  
   await FirebaseMessagingService().init();
 
-  // Inicialização do Supabase
+  
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -43,12 +43,12 @@ class MeuTccApp extends StatelessWidget {
     );
   }
 
-  // Função que define o design system do app
+  
   ThemeData buildAppTheme() {
-    const Color primaryBlue = Color(0xFF2563EB); // Azul principal dos botões e header
-    const Color backgroundLight = Color(0xFFF8FAFC); // Fundo cinza/azulado bem claro
-    const Color textDark = Color(0xFF0F172A); // Cor principal do texto
-    const Color borderLight = Color(0xFFE2E8F0); // Bordas dos inputs e cards
+    const Color primaryBlue = Color(0xFF2563EB); 
+    const Color backgroundLight = Color(0xFFF8FAFC); 
+    const Color textDark = Color(0xFF0F172A); 
+    const Color borderLight = Color(0xFFE2E8F0); 
 
     return ThemeData(
       useMaterial3: true,
@@ -57,7 +57,7 @@ class MeuTccApp extends StatelessWidget {
       colorScheme: const ColorScheme.light(
         primary: primaryBlue,
         secondary: textDark,
-        error: Color(0xFFEF4444), // Vermelho de alerta
+        error: Color(0xFFEF4444), 
         surface: Colors.white,
       ),
       textTheme: GoogleFonts.interTextTheme().apply(
@@ -65,7 +65,7 @@ class MeuTccApp extends StatelessWidget {
         displayColor: textDark,
       ),
       
-      // Estilo Global dos Botões (Baseado na Tela Login e Agendamento)
+      
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryBlue,
@@ -82,7 +82,7 @@ class MeuTccApp extends StatelessWidget {
         ),
       ),
 
-      // Estilo Global dos Campos de Texto (Inputs)
+      
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: Colors.white,

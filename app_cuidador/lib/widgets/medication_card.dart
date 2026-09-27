@@ -46,7 +46,7 @@ class MedicationCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Coluna do horário e ícone de status
+            
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -63,7 +63,7 @@ class MedicationCard extends StatelessWidget {
               ],
             ),
             const SizedBox(width: 12),
-            // Coluna central com nome e status
+            
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +92,7 @@ class MedicationCard extends StatelessWidget {
                 ],
               ),
             ),
-            // Botões de ação: confirmar, editar, excluir
+            
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [

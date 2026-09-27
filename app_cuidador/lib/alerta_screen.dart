@@ -26,12 +26,12 @@ class AlertaOmissaoDialog extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header Vermelho
+            
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: const BoxDecoration(
-                color: Color(0xFFDC2626), // Vermelho Urgente
+                color: Color(0xFFDC2626), 
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
               child: Stack(
@@ -60,12 +60,12 @@ class AlertaOmissaoDialog extends StatelessWidget {
               ),
             ),
             
-            // Corpo do Alerta
+            
             Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Caixa Rosa Claro
+                  
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -98,21 +98,21 @@ class AlertaOmissaoDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Botões de Ação
+                  
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFDC2626), // Botão Vermelho
+                      backgroundColor: const Color(0xFFDC2626), 
                     ),
                     icon: const Icon(Icons.phone),
                     label: const Text('Ligar para Paciente'),
                     onPressed: () {
-                      // Lógica de ligação nativa
+                      
                     },
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Color(0xFF10B981)), // Borda Verde
+                      side: const BorderSide(color: Color(0xFF10B981)), 
                       minimumSize: const Size(double.infinity, 54),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -122,7 +122,7 @@ class AlertaOmissaoDialog extends StatelessWidget {
                       style: TextStyle(color: Color(0xFF065F46), fontWeight: FontWeight.bold),
                     ),
                     onPressed: () {
-                      // Lógica de atualização no Supabase
+                      
                       Navigator.of(context).pop();
                     },
                   ),

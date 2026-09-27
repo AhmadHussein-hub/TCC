@@ -1,7 +1,7 @@
 const supabase = require('../config/database');
 
 exports.amazonCallback = async (req, res) => {
-    // A Amazon envia 'code' e 'state' (onde passaremos o id_paciente para saber quem logou)
+    
     const { code, state } = req.query;
 
     if (!code) {
@@ -12,7 +12,7 @@ exports.amazonCallback = async (req, res) => {
     try {
 
         
-        // Trocar o 'code' temporário por um 'refresh_token' permanente
+        
         const response = await fetch('https://api.amazon.com/auth/o2/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -33,9 +33,9 @@ exports.amazonCallback = async (req, res) => {
         }
 
         const refreshToken = data.refresh_token;
-        const idPaciente = state || 1; // Se 'state' não for passado, tenta o paciente 1.
+        const idPaciente = state || 1; 
 
-        // Salva o Refresh Token na tabela de paciente
+        
         const { error: dbError } = await supabase
             .from('paciente')
             .update({ amazon_refresh_token: refreshToken })
@@ -43,7 +43,7 @@ exports.amazonCallback = async (req, res) => {
 
         if (dbError) throw dbError;
 
-        // Resposta que aparecerá na tela do celular após autorizar na Amazon
+        
         res.send(`
             <html>
                 <body style="font-family: sans-serif; text-align: center; margin-top: 50px;">

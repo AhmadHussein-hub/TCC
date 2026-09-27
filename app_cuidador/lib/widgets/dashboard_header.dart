@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 class DashboardHeader extends StatelessWidget {
   final String patientName;
   final int
-  completedDoses; // Mantido apenas para compatibilidade com a HomeScreen
-  final int totalDoses; // Mantido apenas para compatibilidade com a HomeScreen
-  final String dateText; // Mantido apenas para compatibilidade com a HomeScreen
+  completedDoses; 
+  final int totalDoses; 
+  final String dateText; 
   final VoidCallback? onLogout;
   final VoidCallback? onAiReportTap;
 
@@ -60,14 +60,14 @@ class DashboardHeader extends StatelessWidget {
               ),
               Row(
                 children: [
-                  // Botão de Relatório de IA
+                  
                   IconButton(
                     icon: const Icon(Icons.auto_awesome, color: Colors.white),
                     tooltip: 'Relatório de IA',
                     onPressed: onAiReportTap,
                   ),
                   const SizedBox(width: 8),
-                  // Botão de Perfil / Logout
+                  
                   GestureDetector(
                     onTap: onLogout,
                     child: const CircleAvatar(
@@ -79,7 +79,7 @@ class DashboardHeader extends StatelessWidget {
               ),
             ],
           ),
-          // O Card de Progresso com a percentagem foi totalmente removido daqui
+          
         ],
       ),
     );

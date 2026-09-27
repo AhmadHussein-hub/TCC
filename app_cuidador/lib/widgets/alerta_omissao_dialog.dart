@@ -30,7 +30,7 @@ class AlertaOmissaoDialog extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Cabeçalho Vermelho
+          
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: const BoxDecoration(
@@ -87,12 +87,12 @@ class AlertaOmissaoDialog extends StatelessWidget {
             ),
           ),
           
-          // Corpo do Alerta
+          
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                // Caixa Vermelha Clara
+                
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -131,7 +131,7 @@ class AlertaOmissaoDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 
-                // Info do Paciente
+                
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -177,7 +177,7 @@ class AlertaOmissaoDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 
-                // Botão Ligar
+                
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -194,7 +194,7 @@ class AlertaOmissaoDialog extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 
-                // Botão Marcar Tomado
+                
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(

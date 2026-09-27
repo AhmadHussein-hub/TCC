@@ -1,8 +1,3 @@
-/**
- * ============================================================================
- * ARQUIVO PRINCIPAL DO SERVIDOR (Unificado para Vercel e Local)
- * ============================================================================
- */
 
 require('dotenv').config();
 const express = require('express');
@@ -12,8 +7,7 @@ const supabase = require('./TCC_Codigo/config/database');
 
 
 
-// Importação dos Controllers
-// ATENÇÃO: Ajuste os caminhos colocando './TCC_Codigo/...' caso essas pastas estejam dentro de TCC_Codigo
+
 const { cronController, iniciarCronJobs } = require('./TCC_Codigo/controllers/cronController');
 
 const alexaRoutes = require('./TCC_Codigo/routes/alexaRoutes');
@@ -27,13 +21,9 @@ const aiRoutes = require('./TCC_Codigo/routes/aiRoutes');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ============================================================================
-// CONFIGURAÇÃO DE ROTAS
-// ============================================================================
 
-// Rota da Alexa (Sem express.json() global, pois a Alexa faz seu próprio parser)
 app.use('/api/alexa', alexaRoutes);
-// app.use('/api/alexa-skill', alexaRoutes); // Descomente se precisar manter as duas URLs
+
 
 // Demais rotas (Todas precisam do express.json() para ler o body da requisição)
 app.use('/api/medicamentos', express.json(), medicamentoRoutes);
@@ -41,10 +31,9 @@ app.use('/api/lembrete', express.json(), lembreteRoutes);
 app.use('/api/auth', express.json(), authRoutes);
 app.use('/api/ai', express.json(), aiRoutes);
 
-// A NOSSA ROTA DO CRON PARA A VERCEL CHAMAR
 app.use('/api/cron', express.json(), cronRoutes);
 
-// Rota de saúde para testar se o servidor está online
+
 app.get('/', (req, res) => {
     res.send("Backend de Monitoramento TCC Online e Operante!");
 });
@@ -91,8 +80,7 @@ app.get('/api/testar-omissao', async (req, res) => {
                         const tokenFCM = tokenData[0].token_fcm;
                         console.log(`>>> Enviando push para o token: ${tokenFCM}`);
 
-                        // Reaproveita a mesma instância de messaging já inicializada
-                        // em TCC_Codigo/config/firebase.js (sem duplicar initializeApp aqui)
+                      
                         await getMessagingInstance().send({
                             token: tokenFCM,
                             notification: {
@@ -115,12 +103,10 @@ app.get('/api/testar-omissao', async (req, res) => {
     }
 });
 
-// ============================================================================
-// INICIALIZAÇÃO (Apenas Local - A Vercel ignora este bloco)
-// ============================================================================
+
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
 
-    // Inicia o node-cron em background apenas quando rodar no seu PC
+
     iniciarCronJobs();
 
     app.listen(PORT, () => {
@@ -134,5 +120,4 @@ if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     });
 }
 
-// Exporta o aplicativo Express para a Vercel conseguir gerenciar as requisições serverless
 module.exports = app;

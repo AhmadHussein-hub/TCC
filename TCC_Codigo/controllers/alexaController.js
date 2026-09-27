@@ -3,7 +3,7 @@ const { ExpressAdapter } = require('ask-sdk-express-adapter');
 const supabase = require('../config/database');
 const pushNotification = require('../services/pushNotification');
 
-// 1. Handler LaunchRequest (Apenas Saudações e Verificação de Permissão)
+
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -15,7 +15,7 @@ const LaunchRequestHandler = {
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: LaunchRequest ===");
         let speakOutput = 'Olá! O servidor do seu projeto TCC está conectado. ';
 
-        // Verifica permissão de Lembretes
+        
         const permissions = handlerInput.requestEnvelope.context.System.user.permissions;
         if (!permissions || !permissions.consentToken) {
             return handlerInput.responseBuilder
@@ -34,7 +34,7 @@ const LaunchRequestHandler = {
     }
 };
 
-// 2. NOVO: Handler Configurar Lembretes (Cria as regras de recorrência RRULE)
+
 const ConfigurarLembretesIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -53,7 +53,7 @@ const ConfigurarLembretesIntentHandler = {
                     .getResponse();
             }
 
-            // 1. Busca o paciente
+            
             const { data: paciente } = await supabase
                 .from('paciente')
                 .select('id_paciente')
@@ -64,7 +64,7 @@ const ConfigurarLembretesIntentHandler = {
                 return handlerInput.responseBuilder.speak('Não encontrei seu cadastro no sistema.').getResponse();
             }
 
-            // 2. Busca medicamentos ativos
+            
             const { data: medicamentos, error } = await supabase
                 .from('medicamento')
                 .select('nome_farmaco, hora_inicio, frequencia_horas')
@@ -80,7 +80,7 @@ const ConfigurarLembretesIntentHandler = {
             const reminderServiceClient = handlerInput.serviceClientFactory.getReminderManagementServiceClient();
             let lembretesCriados = 0;
 
-            // 3. Cria um lembrete recorrente para cada medicamento
+            
             for (const med of medicamentos) {
                 const [horaStr, minutoStr] = med.hora_inicio.split(':');
                 const horaInicial = parseInt(horaStr);
@@ -89,7 +89,7 @@ const ConfigurarLembretesIntentHandler = {
                 const horasRecorrencia = [];
                 let horaAtual = horaInicial;
                 
-                // Calcula as repetições limitadas a um ciclo de 24h
+                
                 while (horaAtual < 24 + horaInicial) {
                     horasRecorrencia.push(horaAtual % 24);
                     horaAtual += med.frequencia_horas;
@@ -101,7 +101,7 @@ const ConfigurarLembretesIntentHandler = {
                     requestTime: new Date().toISOString(),
                     trigger: {
                         type: 'SCHEDULED_ABSOLUTE',
-                        // A data base pode ser "hoje" porque a RRULE assume os horários
+                        
                         scheduledTime: new Date().toISOString().split('T')[0] + `T${horaStr.padStart(2, '0')}:${minutoStr.padStart(2, '0')}:00`,
                         timeZoneId: 'America/Sao_Paulo',
                         recurrence: {
@@ -139,7 +139,7 @@ const ConfigurarLembretesIntentHandler = {
     }
 };
 
-// 3. Handler Verificar Medicamentos
+
 const VerificarMedicamentosIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -204,7 +204,7 @@ const VerificarMedicamentosIntentHandler = {
     }
 };
 
-// 4. Handler para quando o usuário disser "Sim"
+
 const SimIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -241,7 +241,7 @@ const SimIntentHandler = {
     }
 };
 
-// 5. Handler Confirmar Medicamento (Com nome específico)
+
 const ConfirmarMedicamentoIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -291,7 +291,7 @@ const ConfirmarMedicamentoIntentHandler = {
     }
 };
 
-// 6. Handler Recusar Medicamento
+
 const RecusarMedicamentoIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -329,7 +329,7 @@ const RecusarMedicamentoIntentHandler = {
     }
 };
 
-// 7. Handler Relatar Bem Estar
+
 const RelatarBemEstarIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -359,7 +359,7 @@ const RelatarBemEstarIntentHandler = {
     }
 };
 
-// 8. Handler Emergência
+
 const EmergenciaIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -389,7 +389,7 @@ const EmergenciaIntentHandler = {
     }
 };
 
-// 9. Error Handler
+
 const ErrorHandler = {
     canHandle() { return true; },
     handle(handlerInput, error) {
@@ -398,13 +398,13 @@ const ErrorHandler = {
     }
 };
 
-// 10. CONSTRUÇÃO DA SKILL
+
 const skillBuilder = Alexa.SkillBuilders.custom()
     .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114')
     .withApiClient(new Alexa.DefaultApiClient())
     .addRequestHandlers(
         LaunchRequestHandler,
-        ConfigurarLembretesIntentHandler, // <-- Adicionado aqui para processar o novo comando de voz
+        ConfigurarLembretesIntentHandler, 
         VerificarMedicamentosIntentHandler,
         SimIntentHandler,
         ConfirmarMedicamentoIntentHandler,

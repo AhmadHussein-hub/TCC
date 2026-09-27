@@ -81,9 +81,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Função que regista no banco que o idoso tomou o remédio
+  
   Future<void> _confirmarMedicamentoTomado(Map<String, dynamic> med) async {
-    final stopwatch = Stopwatch()..start(); // 1. INICIA O CRONÔMETRO AQUI
+    final stopwatch = Stopwatch()..start(); 
     try {
       await supabase.from('registro_consumo').insert({
         'id_medicamento': med['id_medicamento'],
@@ -91,10 +91,10 @@ class _HomeScreenState extends State<HomeScreen> {
         'status': 'TOMADO',
         'horario_registro': DateTime.now().toIso8601String(),
       });
-      stopwatch.stop(); // 2. PARA O CRONÔMETRO AQUI
+      stopwatch.stop(); 
       print(
         '>>> TEMPO DE INSERT SUPABASE: ${stopwatch.elapsedMilliseconds} ms <<<',
-      ); // 3. IMPRIME O RESULTADO
+      ); 
 
       _recarregarDados();
       ScaffoldMessenger.of(context).showSnackBar(

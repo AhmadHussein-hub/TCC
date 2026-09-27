@@ -3,10 +3,10 @@ const supabase = require('../config/database');
 
 const pushNotificationService = {
 
-    // Função principal para notificar os cuidadores de um paciente específico
+
     async alertarCuidadores(id_paciente, titulo, corpo, dadosExtras = {}) {
         try {
-            // 1. Busca os cuidadores vinculados a este paciente
+            
             const { data: vinculos, error: erroVinculo } = await supabase
                 .from('vinculo_cuidador_paciente')
                 .select('id_cuidador')
@@ -19,7 +19,7 @@ const pushNotificationService = {
 
             const idsCuidadores = vinculos.map(v => v.id_cuidador);
 
-            // 2. Pega os tokens FCM ativos desses cuidadores
+            
             const { data: tokensData, error: erroTokens } = await supabase
                 .from('push_token')
                 .select('token_fcm')
@@ -31,10 +31,10 @@ const pushNotificationService = {
                 return;
             }
 
-            // 3. Monta a lista de tokens (apenas as strings)
+           
             const tokensList = tokensData.map(t => t.token_fcm);
 
-            // 4. Monta o payload do Firebase (Mensagem)
+            
             const message = {
                 notification: {
                     title: titulo,
@@ -42,17 +42,17 @@ const pushNotificationService = {
                 },
                 data: {
                     id_paciente: String(id_paciente),
-                    ...dadosExtras // Ex: id_medicamento
+                    ...dadosExtras 
                 },
-                tokens: tokensList // Envia em lote para todos os cuidadores de uma vez
+                tokens: tokensList 
             };
 
-            // 5. Dispara a notificação via Firebase Admin (API modular)
+           
             const response = await getMessagingInstance().sendEachForMulticast(message);
 
             console.log(`${response.successCount} mensagens enviadas com sucesso, ${response.failureCount} falhas.`);
 
-            // Opcional: Lidar com tokens expirados iterando sobre response.responses e removendo do Supabase os que deram erro.
+            
 
         } catch (error) {
             console.error('Erro ao enviar push notification:', error);

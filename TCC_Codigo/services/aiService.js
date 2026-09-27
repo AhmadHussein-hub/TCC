@@ -4,15 +4,12 @@ const supabase = require('../config/database');
 const aiService = {
     async gerarResumoPaciente(id_paciente) {
         try {
-            // Verifica se a chave foi configurada
             if (!process.env.GEMINI_API_KEY) {
                 throw new Error("Chave da API do Gemini (GEMINI_API_KEY) não configurada.");
             }
 
-            // Inicia o cliente do Gemini
             const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-            // 1. Buscar as interações e registros recentes (últimos 7 dias) do paciente
             const seteDiasAtras = new Date();
             seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
             
@@ -44,7 +41,6 @@ const aiService = {
                 throw new Error("Falha ao consultar histórico do paciente.");
             }
 
-            // 2. Montar os dados de forma legível para a IA
             const resumoDados = {
                 doses_confirmadas: registrosCorretos.filter(r => r.status_dose === 'CONFIRMADA').length,
                 doses_esquecidas: registrosCorretos.filter(r => r.status_dose === 'OMITIDA').length,
@@ -67,7 +63,6 @@ Faça um breve resumo (no máximo 3 parágrafos curtos) em linguagem simples, re
 Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algum alerta. Se houve emergência, sugira ter atenção redobrada.
             `;
 
-            // 3. Chamar a API do Gemini com sistema de Retry (Máximo de 3 tentativas)
             let tentativas = 3;
 
             while (tentativas > 0) {
@@ -77,16 +72,14 @@ Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algu
                         contents: prompt,
                     });
 
-                    return response.text; // Se der certo, retorna e sai do loop
+                    return response.text; 
 
                 } catch (error) {
                     if (error.status === 503 && tentativas > 1) {
                         console.warn(`⏳ Servidor da IA ocupado. Tentando novamente... (Restam ${tentativas - 1} tentativas)`);
-                        // Espera 2 segundos antes de tentar de novo
                         await new Promise(resolve => setTimeout(resolve, 2000));
                         tentativas--;
                     } else {
-                        // Se não for erro 503 ou acabarem as tentativas, lança o erro final
                         console.error("Erro no serviço de IA:", error);
                         throw error;
                     }
@@ -94,7 +87,6 @@ Diga se a adesão aos medicamentos está boa e se ele deve se preocupar com algu
             }
             
         } catch (errorGeral) {
-            // Este catch captura qualquer erro fora do while (ex: falha no Supabase)
             console.error("Erro geral ao processar o resumo:", errorGeral);
             throw errorGeral;
         }

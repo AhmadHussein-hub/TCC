@@ -7,7 +7,7 @@ function calcularProximaDose(horaInicioStr, frequenciaHoras) {
   let proximaDose = new Date(agora);
   proximaDose.setHours(horas, minutos, 0, 0);
 
-  // Garante que o agendamento será sempre no futuro
+  
   while (proximaDose <= agora) {
     proximaDose.setHours(proximaDose.getHours() + frequenciaHoras);
   }
@@ -16,10 +16,10 @@ function calcularProximaDose(horaInicioStr, frequenciaHoras) {
 
 exports.agendarLembrete = async (req, res) => {
   try {
-    const { id_paciente } = req.body; // ID enviado pelo app/cron
+    const { id_paciente } = req.body; 
     const id = id_paciente || 1;
 
-    // 1. Buscar o paciente e seu token da Amazon
+    
     const { data: pacienteData, error: errPaciente } = await supabase
         .from('paciente').select('*').eq('id_paciente', id).single();
         
@@ -27,7 +27,7 @@ exports.agendarLembrete = async (req, res) => {
         return res.status(400).json({ error: "Paciente não possui conta Amazon vinculada." });
     }
 
-    // 2. Trocar o refresh_token por um access_token novo
+    
     const tokenResponse = await fetch('https://api.amazon.com/auth/o2/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -45,9 +45,9 @@ exports.agendarLembrete = async (req, res) => {
     }
 
     const apiAccessToken = tokenData.access_token;
-    const apiEndpoint = 'https://api.amazonalexa.com'; // Padrão BR
+    const apiEndpoint = 'https://api.amazonalexa.com'; 
 
-    // 3. Buscar o medicamento
+    
     const { data, error } = await supabase.from('medicamento').select('*').eq('id_paciente', id);
     if (error) throw error;
 

@@ -22,7 +22,7 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
     _carregarConsumoDoses();
   }
 
-  // Busca os registros de consumo já feitos para este remédio no Supabase
+  
   Future<void> _carregarConsumoDoses() async {
     try {
       final response = await supabase
@@ -41,7 +41,7 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
     }
   }
 
-  // Função matemática para gerar os horários do dia com base na frequência e hora de início
+  
   List<String> _gerarHorariosDoDia() {
     final horaInicioStr = widget.medicamento['hora_inicio'];
     final int frequenciaHoras = (widget.medicamento['frequencia_horas'] as num?)?.toInt() ?? 24;
@@ -50,37 +50,37 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
 
     List<String> horarios = [];
     try {
-      // Divide "02:05:00" para pegar hora e minuto
+      
       final partes = horaInicioStr.toString().split(':');
       int horaAtual = int.parse(partes[0]);
       int minutoAtual = int.parse(partes[1]);
 
-      // Gera os horários enquanto estiver dentro do dia (24h)
+      
       while (horaAtual < 24) {
         String hFormatted = horaAtual.toString().padLeft(2, '0');
         String mFormatted = minutoAtual.toString().padLeft(2, '0');
         horarios.add('$hFormatted:$mFormatted');
 
-        // Previne loop infinito se a frequência for 0 ou negativa por algum erro no banco
+        
         if (frequenciaHoras <= 0) break;
         
         horaAtual += frequenciaHoras;
       }
     } catch (e) {
-      // Se houver falha no parse, retorna pelo menos a hora inicial
+      
       horarios.add(horaInicioStr.toString().substring(0, 5));
     }
 
     return horarios;
   }
 
-  // Confirma ou desfaz a tomada de uma dose específica
+  
   Future<void> _alternarStatusDose(String horario) async {
     try {
       final idMed = widget.medicamento['id_medicamento'];
       final idPac = widget.medicamento['id_paciente'];
 
-      // Verifica se já existe registo para este horário
+      
       final jaExiste = _historicoConsumo.any(
         (reg) =>
             reg['horario_registro'] != null &&
@@ -88,14 +88,14 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
       );
 
       if (jaExiste) {
-        // Se já existe, remove (desfaz)
+        
         await supabase
             .from('registro_consumo')
             .delete()
             .eq('id_medicamento', idMed)
             .ilike('horario_registro', '%$horario%');
       } else {
-        // Se não existe, insere como TOMADO
+        
         await supabase.from('registro_consumo').insert({
           'id_medicamento': idMed,
           'id_paciente': idPac,
@@ -138,7 +138,7 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Card de Informações Gerais
+                  
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -182,7 +182,7 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Lista de Horários Calculados
+                  
                   Expanded(
                     child: listaHorarios.isEmpty
                         ? const Center(
@@ -195,7 +195,7 @@ class _DetalhesMedicamentoScreenState extends State<DetalhesMedicamentoScreen> {
                             itemBuilder: (context, index) {
                               final horario = listaHorarios[index];
 
-                              // Verifica se esta dose já foi tomada consultando os registos
+                              
                               final registroEncontrado = _historicoConsumo
                                   .firstWhere(
                                     (reg) =>

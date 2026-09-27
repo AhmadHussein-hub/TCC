@@ -2,7 +2,7 @@ const Alexa = require('ask-sdk-core');
 const { ExpressAdapter } = require('ask-sdk-express-adapter');
 const supabase = require('../config/database');
 
-// 1. Handler para quando a Alexa inicia a Skill (ex: "Alexa, abrir meu tcc")
+
 const LaunchRequestHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'LaunchRequest';
@@ -13,12 +13,12 @@ const LaunchRequestHandler = {
 
         return handlerInput.responseBuilder
             .speak(speakOutput)
-            .reprompt(speakOutput) // Mantém o microfone aberto
+            .reprompt(speakOutput) 
             .getResponse();
     }
 };
 
-// 1.5 Handler para verificar os medicamentos pendentes
+
 const VerificarMedicamentosIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -28,7 +28,7 @@ const VerificarMedicamentosIntentHandler = {
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: VerificarMedicamentosIntent ===");
 
         try {
-            // Busca no banco de dados real
+            
             const { data, error } = await supabase
                 .from('registro_consumo')
                 .select(`
@@ -47,9 +47,9 @@ const VerificarMedicamentosIntentHandler = {
             if (data && data.length > 0) {
                 speakOutput = `Você tem ${data.length} remédios pendentes hoje. `;
                 data.forEach(registro => {
-                    // Extrai a hora do timestamp para a Alexa falar de forma amigável
+                    
                     const dataHora = new Date(registro.timestamp_agendado);
-                    const horaFormatada = dataHora.getHours() + " e " + dataHora.getMinutes(); // Fala amigável para a Alexa
+                    const horaFormatada = dataHora.getHours() + " e " + dataHora.getMinutes(); 
                     
                     speakOutput += `O ${registro.medicamento.nome_farmaco} às ${horaFormatada}. `;
                 });
@@ -60,7 +60,7 @@ const VerificarMedicamentosIntentHandler = {
 
             return handlerInput.responseBuilder
                 .speak(speakOutput)
-                .reprompt('Posso ajudar com mais alguma coisa?') // Mantém aberto
+                .reprompt('Posso ajudar com mais alguma coisa?') 
                 .getResponse();
         } catch (error) {
             console.error("Erro ao buscar no Supabase:", error);
@@ -71,7 +71,7 @@ const VerificarMedicamentosIntentHandler = {
     }
 };
 
-// 1.6 Handler para confirmar que o medicamento foi tomado
+
 const ConfirmarMedicamentoIntentHandler = {
     canHandle(handlerInput) {
         return Alexa.getRequestType(handlerInput.requestEnvelope) === 'IntentRequest'
@@ -80,11 +80,11 @@ const ConfirmarMedicamentoIntentHandler = {
     async handle(handlerInput) {
         console.log("=== NOVA REQUISIÇÃO DA ALEXA: ConfirmarMedicamentoIntent ===");
         
-        // Pega o nome do remédio que o usuário falou (usando Slots)
+        
         const nomeRemedio = Alexa.getSlotValue(handlerInput.requestEnvelope, 'remedio');
 
         try {
-            // Se o usuário não disse o nome do remédio
+            
             if (!nomeRemedio) {
                 return handlerInput.responseBuilder
                     .speak('Qual é o nome do remédio que você tomou?')
@@ -92,8 +92,8 @@ const ConfirmarMedicamentoIntentHandler = {
                     .getResponse();
             }
 
-            // 1. Primeiro precisamos achar o id_medicamento pelo nome
-            // Usamos ilike para ignorar maiúsculas/minúsculas na busca
+            
+            
             const { data: medData, error: medError } = await supabase
                 .from('medicamento')
                 .select('id_medicamento')
@@ -108,7 +108,7 @@ const ConfirmarMedicamentoIntentHandler = {
 
             const idMedicamento = medData[0].id_medicamento;
 
-            // 2. Procura um registro de consumo PENDENTE para este medicamento
+            
             const { data: regData, error: regError } = await supabase
                 .from('registro_consumo')
                 .select('id_registro')
@@ -124,7 +124,7 @@ const ConfirmarMedicamentoIntentHandler = {
 
             const idRegistro = regData[0].id_registro;
 
-            // 3. Atualiza o status para CONFIRMADA e grava a hora da confirmação
+            
             const { error: updateError } = await supabase
                 .from('registro_consumo')
                 .update({ 
@@ -148,7 +148,7 @@ const ConfirmarMedicamentoIntentHandler = {
     }
 };
 
-// 2. Handler genérico para capturar erros
+
 const ErrorHandler = {
     canHandle() {
         return true;
@@ -164,9 +164,9 @@ const ErrorHandler = {
     }
 };
 
-// 3. Constrói a Skill registrando os Handlers
+
 const skillBuilder = Alexa.SkillBuilders.custom()
-    .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114') // <--- ADICIONAR ISSO AQUI
+    .withSkillId('amzn1.ask.skill.6cd8d640-3b4a-43c0-9263-0aa45601c114') 
     .addRequestHandlers(
         LaunchRequestHandler,
         VerificarMedicamentosIntentHandler,
@@ -179,11 +179,11 @@ const skillBuilder = Alexa.SkillBuilders.custom()
 
 const skill = skillBuilder.create();
 
-// 4. Cria o adaptador Express
-// Os booleanos (false, false) desativam a verificação rígida de segurança da Amazon 
-// *apenas* para facilitar este primeiro teste via ngrok. 
-// Para mandar para produção, mudaremos para (true, true) e a URL do servidor deve ser HTTPS.
+
+
+
+
 const adapter = new ExpressAdapter(skill, false, false);
 
-// 5. Exporta o handler para a rota
+
 exports.receberRequisicao = adapter.getRequestHandlers();

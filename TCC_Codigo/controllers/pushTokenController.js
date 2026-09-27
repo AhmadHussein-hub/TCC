@@ -9,7 +9,7 @@ const pushTokenController = {
                 return res.status(400).json({ error: 'Faltam dados obrigatórios' });
             }
 
-            // Procura se já existe um token para esse cuidador
+            
             const { data: existing } = await supabase
                 .from('push_token')
                 .select('id_token')
@@ -18,10 +18,10 @@ const pushTokenController = {
 
             let query;
             if (existing) {
-                // Atualiza o token existente
+                
                 query = supabase.from('push_token').update({ token_fcm, plataforma, updated_at: new Date() }).eq('id_cuidador', id_cuidador);
             } else {
-                // Cria um novo
+                
                 query = supabase.from('push_token').insert([{ id_cuidador, token_fcm, plataforma }]);
             }
 

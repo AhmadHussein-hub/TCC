@@ -23,7 +23,7 @@ class _AddMedicamentoScreenState extends State<AddMedicamentoScreen> {
   @override
   void initState() {
     super.initState();
-    // Se estivermos a editar, preenchemos os campos com os valores atuais do Supabase
+    
     if (widget.medicamentoParaEditar != null) {
       final med = widget.medicamentoParaEditar!;
       _nomeController.text = med['nome_farmaco'] ?? '';
@@ -40,11 +40,11 @@ class _AddMedicamentoScreenState extends State<AddMedicamentoScreen> {
   Future<void> _salvarMedicamento() async {
     setState(() => _isLoading = true);
 
-    // 1. INICIA O CRONÔMETRO EXATAMENTE ANTES DA LÓGICA COMEÇAR
+    
     final stopwatch = Stopwatch()..start();
 
     try {
-      // Converte os valores numéricos com segurança
+      
       final int? frequenciaHoras = int.tryParse(
         _frequenciaController.text.trim(),
       );
@@ -60,14 +60,14 @@ class _AddMedicamentoScreenState extends State<AddMedicamentoScreen> {
             : _horaController.text.trim(),
         'frequencia_horas': frequenciaHoras,
         'limite_atraso_minutos': limiteAtrasoMinutos,
-        'id_paciente': 1, // Mantém vinculado ao paciente atual
+        'id_paciente': 1, 
       };
 
       if (widget.medicamentoParaEditar == null) {
-        // MODO CADASTRO (INSERT)
+        
         await supabase.from('medicamento').insert(dadosFormulario);
       } else {
-        // MODO EDIÇÃO (UPDATE)
+        
         final id = widget.medicamentoParaEditar!['id_medicamento'];
         await supabase
             .from('medicamento')
@@ -75,10 +75,10 @@ class _AddMedicamentoScreenState extends State<AddMedicamentoScreen> {
             .eq('id_medicamento', id);
       }
 
-      // 2. PARA O CRONÔMETRO LOGO APÓS O BANCO DE DADOS RESPONDER
+      
       stopwatch.stop();
 
-      // 3. IMPRIME O TEMPO NO TERMINAL (DEBUG CONSOLE)
+      
       print(
         '>>> TEMPO CT01 (AGENDAMENTO SUPABASE): ${stopwatch.elapsedMilliseconds} ms <<<',
       );

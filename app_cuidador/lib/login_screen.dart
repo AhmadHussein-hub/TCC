@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'home_screen.dart'; // Mantenha o seu import da próxima tela
+import 'home_screen.dart'; 
 import 'services/firebase_messaging_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,15 +14,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
   bool _isLoading = false;
-  bool _obscurePassword = true; // Para alternar a visibilidade da senha
+  bool _obscurePassword = true; 
 
-  // Instância do Supabase para chamarmos o banco
+  
   final supabase = Supabase.instance.client;
 
   @override
   void initState() {
     super.initState();
-    // Inicializa o listener de notificações do Firebase quando o app abre
+    
     FirebaseMessagingService().init();
   }
 
@@ -30,7 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Tenta autenticar o cuidador
+      
       final AuthResponse res = await supabase.auth.signInWithPassword(
         email: _emailController.text.trim(),
         password: _senhaController.text.trim(),
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Estilo padrão para os rótulos acima dos campos (E-MAIL, SENHA)
+  
   final TextStyle _labelStyle = const TextStyle(
     fontSize: 12,
     fontWeight: FontWeight.bold,
@@ -68,7 +68,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // O ScaffoldBackgroundColor já vem do main.dart, mas o SafeArea protege contra o notch
+      
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -77,10 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Espaçamento superior para descer um pouco o form
+                
                 const SizedBox(height: 40),
 
-                // LABEL E-MAIL
+                
                 Text('E-MAIL', style: _labelStyle),
                 const SizedBox(height: 8),
                 TextField(
@@ -92,7 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // LABEL SENHA
+                
                 Text('SENHA', style: _labelStyle),
                 const SizedBox(height: 8),
                 TextField(
@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     hintText: '••••••••',
-                    // Ícone de mostrar/ocultar senha
+                    
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -117,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // BOTÃO ENTRAR
+                
                 ElevatedButton(
                   onPressed: _isLoading ? null : _fazerLogin,
                   child: _isLoading
@@ -133,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // LINK DE CADASTRO
+                
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -157,7 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // DIVISOR "OU"
+                
                 const Row(
                   children: [
                     Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
@@ -177,15 +177,15 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // BOTÃO AMAZON ALEXA
+                
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEFF6FF), // Fundo azul bem claro
-                    side: const BorderSide(color: Color(0xFF93C5FD)), // Borda azul clara
+                    backgroundColor: const Color(0xFFEFF6FF), 
+                    side: const BorderSide(color: Color(0xFF93C5FD)), 
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     minimumSize: const Size(double.infinity, 54),
                   ),
-                  // Usando um ícone temporário que lembra a cor de logomarcas
+                  
                   icon: const Icon(Icons.radio_button_checked, color: Color(0xFF00A8E1)), 
                   label: const Text(
                     'Vincular com Amazon Alexa',
@@ -196,12 +196,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   onPressed: () {
-                    // Lógica futura para o OAUTH da Amazon
+                    
                   },
                 ),
                 const SizedBox(height: 16),
 
-                // TEXTO DE RODAPÉ
+                
                 const Text(
                   'A vinculação com a Alexa permite confirmação de medicamentos\npor voz e alertas automáticos para cuidadores.',
                   textAlign: TextAlign.center,

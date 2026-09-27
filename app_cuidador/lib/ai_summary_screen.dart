@@ -32,20 +32,20 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
     });
 
     try {
-      // Pega a URL do backend do arquivo .env, ou usa o localhost do emulador Android como fallback
+      
       final baseUrl = dotenv.env['BACKEND_URL'] ?? 'http://10.0.2.2:3000';
       final url = Uri.parse('$baseUrl/api/ai/resumo/${widget.pacienteId}');
 
-      // 1. INICIA O CRONÔMETRO AQUI
+      
       final stopwatch = Stopwatch()..start();
 
-      // Requisição para o Backend/Gemini
+      
       final response = await http.get(url);
 
-      // 2. PARA O CRONÔMETRO AQUI
+      
       stopwatch.stop();
 
-      // 3. IMPRIME O RESULTADO NO CONSOLE
+      
       print(
         '>>> TEMPO CT04 (GEMINI IA): ${stopwatch.elapsedMilliseconds} ms <<<',
       );
