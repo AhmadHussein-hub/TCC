@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'dart:io' show Platform;
 
-import 'login_screen.dart';
+import 'widgets/dashboard_header.dart';
+import 'widgets/medication_card.dart';
 import 'add_medicamento_screen.dart';
 import 'ai_summary_screen.dart';
+import 'login_screen.dart';
+import 'detalhes_medicamento_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,198 +17,361 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final supabase = Supabase.instance.client;
+  late Future<Map<String, dynamic>> _dadosPainel;
 
   @override
   void initState() {
     super.initState();
-    // Chama a função assim que a tela abre, em segundo plano
-    registrarTokenNoBanco();
+    _dadosPainel = _carregarDadosPainel();
   }
 
-  Future<void> registrarTokenNoBanco() async {
-    FirebaseMessaging messaging = FirebaseMessaging.instance;
+  void _recarregarDados() {
+    setState(() {
+      _dadosPainel = _carregarDadosPainel();
+    });
+  }
 
-    // Mostra o pop-up pedindo permissão de notificação (Android 13+ e iOS)
-    NotificationSettings settings = await messaging.requestPermission();
+  Future<Map<String, dynamic>> _carregarDadosPainel() async {
+    final pacienteRes = await supabase
+        .from('paciente')
+        .select()
+        .limit(1)
+        .maybeSingle();
+    final medicamentosRes = await supabase
+        .from('medicamento')
+        .select()
+        .order('id_medicamento', ascending: true);
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      // Pega o código único (Token) deste celular
-      String? fcmToken = await messaging.getToken();
+    return {
+      'paciente': pacienteRes ?? {'nome': 'Sr. João Silva'},
+      'medicamentos': List<Map<String, dynamic>>.from(medicamentosRes),
+    };
+  }
 
-      if (fcmToken != null) {
-        // Verifica qual cuidador está logado no app agora
-        final idCuidador = supabase.auth.currentUser?.id;
-
-        if (idCuidador != null) {
-          try {
-            // Manda para a sua tabela no Supabase
-            await supabase.from('push_token').upsert({
-              'id_cuidador': idCuidador,
-              'token_fcm': fcmToken,
-              'plataforma': Platform.isAndroid ? 'Android' : 'iOS',
-              'ativo': true,
-              'updated_at': DateTime.now().toIso8601String(),
-            });
-            debugPrint("Token salvo no Supabase com sucesso!");
-          } catch (e) {
-            debugPrint("Erro ao salvar token: $e");
-          }
-        }
-      }
+  Future<void> _fazerLogout() async {
+    await supabase.auth.signOut();
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
     }
   }
 
-  // Função para buscar na tabela "medicamento"
-  Future<List<dynamic>> _buscarMedicamentos() async {
-    final response = await supabase
-        .from('medicamento')
-        .select()
-        .order('nome_farmaco', ascending: true); // Ordena em ordem alfabética
-    return response;
+  Future<void> _deletarMedicamento(int idMedicamento) async {
+    try {
+      await supabase
+          .from('medicamento')
+          .delete()
+          .eq('id_medicamento', idMedicamento);
+      _recarregarDados();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Medicamento excluído com sucesso!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao excluir: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  // Função que regista no banco que o idoso tomou o remédio
+  Future<void> _confirmarMedicamentoTomado(Map<String, dynamic> med) async {
+    try {
+      await supabase.from('registro_consumo').insert({
+        'id_medicamento': med['id_medicamento'],
+        'id_paciente': med['id_paciente'],
+        'status': 'TOMADO',
+        'horario_registro': DateTime.now().toIso8601String(),
+      });
+
+      _recarregarDados();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Dose de ${med['nome_farmaco']} confirmada com sucesso!',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao registrar consumo: $e'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _abrirTelaEdicao(Map<String, dynamic> med) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddMedicamentoScreen(medicamentoParaEditar: med),
+      ),
+    );
+    _recarregarDados();
+  }
+
+  Future<void> _confirmarExclusao(Map<String, dynamic> med) async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Excluir medicamento?'),
+        content: Text(
+          'Tem certeza que deseja excluir "${med['nome_farmaco']}"? Esta ação não pode ser desfeita.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Excluir', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmar == true) {
+      _deletarMedicamento(med['id_medicamento']);
+    }
+  }
+
+  void _mostrarOpcoesMedicamento(Map<String, dynamic> med) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                med['nome_farmaco'] ?? 'Medicamento',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Dosagem: ${med['dosagem'] ?? 'Não informada'}',
+                style: const TextStyle(color: Colors.grey),
+              ),
+              const Divider(height: 32),
+              ListTile(
+                leading: const Icon(Icons.edit, color: Color(0xFF2563EB)),
+                title: const Text('Editar Medicamento'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _abrirTelaEdicao(med);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text(
+                  'Excluir Medicamento',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _deletarMedicamento(med['id_medicamento']);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Painel do Cuidador'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            tooltip: 'Resumo da IA',
-            onPressed: () {
-              // TODO: Substituir o 1 pelo ID real do paciente se houver múltiplos pacientes
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AiSummaryScreen(pacienteId: 1)),
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sair',
-            onPressed: () async {
-              await supabase.auth.signOut();
-              if (context.mounted) {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                );
-              }
-            },
-          )
-        ],
-      ),
-      body: FutureBuilder<List<dynamic>>(
-        future: _buscarMedicamentos(),
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _dadosPainel,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+          if (snapshot.connectionState == ConnectionState.waiting &&
+              !snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
-            return Center(child: Text('Erro ao carregar: ${snapshot.error}'));
+            return Center(
+              child: Text('Erro ao carregar dados: ${snapshot.error}'),
+            );
           }
 
-          final medicamentos = snapshot.data;
-          if (medicamentos == null || medicamentos.isEmpty) {
-            return const Center(child: Text('Nenhum medicamento cadastrado.'));
-          }
+          final dados = snapshot.data ?? {};
+          final pacienteMap = dados['paciente'] as Map<String, dynamic>;
+          final String nomePaciente =
+              pacienteMap['nome'] ??
+              pacienteMap['nome_completo'] ??
+              'Sr. João Silva';
+          final medicamentos =
+              dados['medicamentos'] as List<Map<String, dynamic>>;
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(8),
-            itemCount: medicamentos.length,
-            itemBuilder: (context, index) {
-              final med = medicamentos[index];
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                child: ListTile(
-                  leading: const Icon(Icons.medication, color: Colors.teal, size: 36),
-                  title: Text(
-                    med['nome_farmaco'] ?? 'Sem nome',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                  subtitle: Text('Dosagem: ${med['dosagem']}\nTolerância: ${med['limite_atraso_minutos']} min'),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.shade50,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          '${med['frequencia_horas']}h',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.teal, fontSize: 16),
-                        ),
+          return SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DashboardHeader(
+                  patientName: nomePaciente,
+                  completedDoses: 1,
+                  totalDoses: medicamentos.length,
+                  dateText: 'Painel do Cuidador',
+                  onAiReportTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            const AiSummaryScreen(pacienteId: 1),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'Excluir medicamento',
-                        onPressed: () async {
-                          final confirmar = await showDialog<bool>(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Confirmar exclusão'),
-                              content: Text('Deseja excluir o medicamento ${med['nome_farmaco']}?'),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                  child: const Text('Cancelar'),
-                                ),
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  child: const Text('Excluir', style: TextStyle(color: Colors.red)),
-                                ),
-                              ],
+                    );
+                  },
+                  onLogout: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Encerrar Sessão'),
+                        content: const Text(
+                          'Deseja realmente sair da sua conta?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancelar'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _fazerLogout();
+                            },
+                            child: const Text(
+                              'Sair',
+                              style: TextStyle(color: Colors.red),
                             ),
-                          );
-                          if (confirmar == true) {
-                            try {
-                              await supabase.from('medicamento').delete().eq('id_medicamento', med['id_medicamento']);
-                              setState(() {}); // Recarrega a lista
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Medicamento excluído com sucesso.')),
-                                );
-                              }
-                            } catch (e) {
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Erro ao excluir: $e')),
-                                );
-                              }
-                            }
-                          }
-                        },
+                          ),
+                        ],
                       ),
-                    ],
+                    );
+                  },
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.only(
+                    left: 24.0,
+                    right: 24.0,
+                    top: 32.0,
+                    bottom: 16.0,
+                  ),
+                  child: Text(
+                    'LEMBRETES DO DIA',
+                    style: TextStyle(
+                      color: Color(0xFF64748B),
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.0,
+                    ),
                   ),
                 ),
-              );
-            },
+
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: medicamentos.isEmpty
+                      ? const Center(
+                          child: Text('Nenhum medicamento cadastrado.'),
+                        )
+                      : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: medicamentos.length,
+                          itemBuilder: (context, index) {
+                            final med = medicamentos[index];
+                            final String nomeFarmaco =
+                                med['nome_farmaco'] ?? 'Remédio';
+                            final String dosagem = med['dosagem'] ?? '';
+
+                            final rawHora = med['hora_inicio'];
+                            final String horaInicio = rawHora != null
+                                ? rawHora.toString()
+                                : 'A definir';
+                            final String horarioFormatado =
+                                horaInicio.length >= 5
+                                ? horaInicio.substring(0, 5)
+                                : horaInicio;
+
+                            return MedicationCard(
+                              time: horarioFormatado,
+                              name: '$nomeFarmaco ($dosagem)',
+                              statusText: rawHora != null
+                                  ? 'Agendado / Frequência de ${med['frequencia_horas'] ?? 24}h'
+                                  : 'Horário não configurado',
+                              statusColor: rawHora != null
+                                  ? const Color(0xFFF59E0B)
+                                  : Colors.grey,
+                              statusIcon: Icon(
+                                rawHora != null
+                                    ? Icons.access_time
+                                    : Icons.help_outline,
+                                color: rawHora != null
+                                    ? const Color(0xFFF59E0B)
+                                    : Colors.grey,
+                                size: 24,
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        DetalhesMedicamentoScreen(
+                                          medicamento: med,
+                                        ),
+                                  ),
+                                ).then((_) => _recarregarDados());
+                              },
+                              onConfirmarTomado: () =>
+                                  _confirmarMedicamentoTomado(med),
+                              onEdit: () => _abrirTelaEdicao(med),
+                              onDelete: () => _confirmarExclusao(med),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 80),
+              ],
+            ),
           );
         },
       ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          // Abre a tela de cadastro e aguarda o retorno
-          final recarregar = await Navigator.push(
+          await Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => const AddMedicamentoScreen()),
+            MaterialPageRoute(
+              builder: (context) => const AddMedicamentoScreen(),
+            ),
           );
-
-          // Se o cadastro foi feito (retornou true), atualiza a lista
-          if (recarregar == true) {
-            setState(() {});
-          }
+          _recarregarDados();
         },
-        backgroundColor: Colors.teal,
-        child: const Icon(Icons.add, color: Colors.white),
+        backgroundColor: const Color(0xFF2563EB),
+        elevation: 4,
+        shape: const CircleBorder(),
+        child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
     );
   }

@@ -40,6 +40,7 @@ dependencies:
   # Adicionados do Firebase
   firebase_core: 
   firebase_messaging: 
+  google_fonts: ^8.2.1
 
 # Note que este bloco 'flutter' fica totalmente encostado na margem esquerda, FORA do bloco 'dependencies'
 flutter:

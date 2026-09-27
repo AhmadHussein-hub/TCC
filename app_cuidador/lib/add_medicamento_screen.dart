@@ -2,170 +2,140 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddMedicamentoScreen extends StatefulWidget {
-  const AddMedicamentoScreen({super.key});
+  final Map<String, dynamic>? medicamentoParaEditar;
+
+  const AddMedicamentoScreen({super.key, this.medicamentoParaEditar});
 
   @override
   State<AddMedicamentoScreen> createState() => _AddMedicamentoScreenState();
 }
 
 class _AddMedicamentoScreenState extends State<AddMedicamentoScreen> {
-  final _formKey = GlobalKey<FormState>();
   final _nomeController = TextEditingController();
   final _dosagemController = TextEditingController();
+  final _horaController = TextEditingController();
   final _frequenciaController = TextEditingController();
-  final _atrasoController = TextEditingController();
+  final _limiteAtrasoController = TextEditingController();
   
-  TimeOfDay? _horaInicio;
   bool _isLoading = false;
+  final supabase = Supabase.instance.client;
 
-  // Função para abrir o relógio nativo e escolher a hora
-  Future<void> _selecionarHora() async {
-    final TimeOfDay? selecionada = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-          child: child!,
-        );
-      },
-    );
-    if (selecionada != null) {
-      setState(() {
-        _horaInicio = selecionada;
-      });
+  @override
+  void initState() {
+    super.initState();
+    // Se estivermos a editar, preenchemos os campos com os valores atuais do Supabase
+    if (widget.medicamentoParaEditar != null) {
+      final med = widget.medicamentoParaEditar!;
+      _nomeController.text = med['nome_farmaco'] ?? '';
+      _dosagemController.text = med['dosagem'] ?? '';
+      _horaController.text = med['hora_inicio'] != null ? med['hora_inicio'].toString().substring(0, 5) : '';
+      _frequenciaController.text = med['frequencia_horas']?.toString() ?? '';
+      _limiteAtrasoController.text = med['limite_atraso_minutos']?.toString() ?? '';
     }
   }
 
   Future<void> _salvarMedicamento() async {
-    if (!_formKey.currentState!.validate()) return;
-    
-    // Validação extra para garantir que a hora foi escolhida
-    if (_horaInicio == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, selecione o horário da primeira dose.'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
 
     try {
-      // Formata a hora para o padrão que o banco aceita (HH:MM:00)
-      final horaFormatada = '${_horaInicio!.hour.toString().padLeft(2, '0')}:${_horaInicio!.minute.toString().padLeft(2, '0')}:00';
+      // Converte os valores numéricos com segurança
+      final int? frequenciaHoras = int.tryParse(_frequenciaController.text.trim());
+      final int? limiteAtrasoMinutos = int.tryParse(_limiteAtrasoController.text.trim());
 
-      // TODO: Substituir por busca do id_paciente real vinculado ao cuidador logado
-      // final userId = Supabase.instance.client.auth.currentUser?.id;
-      // final pacienteData = await Supabase.instance.client.from('paciente').select('id_paciente').eq('id_cuidador', userId).single();
-      // final idPaciente = pacienteData['id_paciente'];
-      const int idPaciente = 1;
-
-      await Supabase.instance.client.from('medicamento').insert({
-        'id_paciente': idPaciente,
+      final dadosFormulario = {
         'nome_farmaco': _nomeController.text.trim(),
         'dosagem': _dosagemController.text.trim(),
-        'frequencia_horas': int.parse(_frequenciaController.text.trim()),
-        'limite_atraso_minutos': int.parse(_atrasoController.text.trim()),
-        'hora_inicio': horaFormatada, // Salvando o novo campo
-      });
+        'hora_inicio': _horaController.text.trim().isEmpty ? null : _horaController.text.trim(),
+        'frequencia_horas': frequenciaHoras,
+        'limite_atraso_minutos': limiteAtrasoMinutos,
+        'id_paciente': 1, // Mantém vinculado ao paciente atual
+      };
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Medicamento cadastrado com horário inicial!'), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context, true); 
+      if (widget.medicamentoParaEditar == null) {
+        // MODO CADASTRO (INSERT)
+        await supabase.from('medicamento').insert(dadosFormulario);
+      } else {
+        // MODO EDIÇÃO (UPDATE)
+        final id = widget.medicamentoParaEditar!['id_medicamento'];
+        await supabase.from('medicamento').update(dadosFormulario).eq('id_medicamento', id);
       }
+
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e'), backgroundColor: Colors.red),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar: $e'), backgroundColor: Colors.red),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  final TextStyle _labelStyle = const TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.bold,
+    color: Color(0xFF64748B),
+    letterSpacing: 1.0,
+  );
+
   @override
   Widget build(BuildContext context) {
+    final bool isEditando = widget.medicamentoParaEditar != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Novo Medicamento'),
-        backgroundColor: Colors.teal,
-        foregroundColor: Colors.white,
+        title: Text(isEditando ? 'Editar Medicamento' : 'Novo Medicamento'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextFormField(
-                controller: _nomeController,
-                decoration: const InputDecoration(labelText: 'Nome do Fármaco', border: OutlineInputBorder()),
-                validator: (val) => val == null || val.isEmpty ? 'Campo obrigatório' : null,
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _dosagemController,
-                decoration: const InputDecoration(labelText: 'Dosagem (ex: 500mg)', border: OutlineInputBorder()),
-                validator: (val) => val == null || val.isEmpty ? 'Campo obrigatório' : null,
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _frequenciaController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Frequência (horas)', border: OutlineInputBorder()),
-                      validator: (val) => val == null || val.isEmpty ? 'Obrigatório' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _atrasoController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Tolerância (min)', border: OutlineInputBorder()),
-                      validator: (val) => val == null || val.isEmpty ? 'Obrigatório' : null,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Botão para selecionar a hora
-              OutlinedButton.icon(
-                onPressed: _selecionarHora,
-                icon: const Icon(Icons.access_time, color: Colors.teal),
-                label: Text(
-                  _horaInicio == null 
-                      ? 'Definir horário da 1ª dose' 
-                      : '1ª dose às ${_horaInicio!.hour.toString().padLeft(2, '0')}:${_horaInicio!.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 16, color: Colors.teal),
-                ),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  side: const BorderSide(color: Colors.teal),
-                ),
-              ),
-              
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isLoading ? null : _salvarMedicamento,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Colors.teal,
-                  foregroundColor: Colors.white,
-                ),
-                child: _isLoading 
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Salvar Medicamento', style: TextStyle(fontSize: 16)),
-              ),
-            ],
-          ),
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('NOME DO REMÉDIO', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextField(controller: _nomeController, decoration: const InputDecoration(hintText: 'ex: Dipirona')),
+            const SizedBox(height: 20),
+
+            Text('DOSAGEM', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextField(controller: _dosagemController, decoration: const InputDecoration(hintText: 'ex: 500mg')),
+            const SizedBox(height: 20),
+
+            Text('HORÁRIO DA PRIMEIRA DOSE', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextField(controller: _horaController, decoration: const InputDecoration(hintText: 'ex: 08:00')),
+            const SizedBox(height: 20),
+
+            Text('FREQUÊNCIA (EM HORAS)', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _frequenciaController, 
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'ex: 8 (para tomar de 8 em 8h)'),
+            ),
+            const SizedBox(height: 20),
+
+            Text('LIMITE DE ATRASO (EM MINUTOS)', style: _labelStyle),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _limiteAtrasoController, 
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(hintText: 'ex: 30 (tolerância para alerta)'),
+            ),
+            const SizedBox(height: 32),
+
+            ElevatedButton(
+              onPressed: _isLoading ? null : _salvarMedicamento,
+              child: _isLoading 
+                ? const SizedBox(
+                    height: 20, 
+                    width: 20, 
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  ) 
+                : Text(isEditando ? 'Atualizar Medicamento' : 'Salvar e Sincronizar'),
+            ),
+          ],
         ),
       ),
     );
