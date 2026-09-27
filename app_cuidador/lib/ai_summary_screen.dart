@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
 import 'dart:convert';
+
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AiSummaryScreen extends StatefulWidget {
@@ -34,7 +36,19 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
       final baseUrl = dotenv.env['BACKEND_URL'] ?? 'http://10.0.2.2:3000';
       final url = Uri.parse('$baseUrl/api/ai/resumo/${widget.pacienteId}');
 
+      // 1. INICIA O CRONÔMETRO AQUI
+      final stopwatch = Stopwatch()..start();
+
+      // Requisição para o Backend/Gemini
       final response = await http.get(url);
+
+      // 2. PARA O CRONÔMETRO AQUI
+      stopwatch.stop();
+
+      // 3. IMPRIME O RESULTADO NO CONSOLE
+      print(
+        '>>> TEMPO CT04 (GEMINI IA): ${stopwatch.elapsedMilliseconds} ms <<<',
+      );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -43,7 +57,8 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
         });
       } else {
         setState(() {
-          _errorMessage = "Erro ao buscar resumo (Status: ${response.statusCode}). Verifique se a API Key do Gemini está configurada no backend.";
+          _errorMessage =
+              "Erro ao buscar resumo (Status: ${response.statusCode}). Verifique se a API Key do Gemini está configurada no backend.";
         });
       }
     } catch (e) {
@@ -74,53 +89,71 @@ class _AiSummaryScreenState extends State<AiSummaryScreen> {
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('A Inteligência Artificial está analisando os dados...'),
+                    Text(
+                      'A Inteligência Artificial está analisando os dados...',
+                    ),
                   ],
                 ),
               )
             : _errorMessage.isNotEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                        const SizedBox(height: 16),
-                        Text(_errorMessage, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red)),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _buscarResumoIA,
-                          child: const Text('Tentar Novamente'),
-                        )
-                      ],
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
                     ),
-                  )
-                : SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Icon(Icons.auto_awesome, color: Colors.indigo, size: 48),
-                        const SizedBox(height: 16),
-                        const Text(
-                          'Análise da Semana',
-                          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 24),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.indigo.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.indigo.shade100),
-                          ),
-                          child: Text(
-                            _resumo,
-                            style: const TextStyle(fontSize: 16, height: 1.5),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+                    Text(
+                      _errorMessage,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.red),
                     ),
-                  ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _buscarResumoIA,
+                      child: const Text('Tentar Novamente'),
+                    ),
+                  ],
+                ),
+              )
+            : SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.indigo,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Análise da Semana',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.indigo,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.indigo.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.indigo.shade100),
+                      ),
+                      child: Text(
+                        _resumo,
+                        style: const TextStyle(fontSize: 16, height: 1.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
       ),
     );
   }
